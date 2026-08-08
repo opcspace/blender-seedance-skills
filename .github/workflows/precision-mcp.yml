@@ -1,0 +1,20 @@
+name: Precision MCP checks
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  python-contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Run precision specification tests
+        run: python -m unittest discover -s tests -p 'test_precision_spec.py' -v
+      - name: Compile MCP and Blender addon sources
+        run: python -m py_compile precision-mcp/precision_mcp/*.py precision-mcp/blender_addon/precision_addon.py
+      - name: Parse model schema
+        run: python -c "import json; json.load(open('precision-mcp/schemas/model_spec.schema.json')); print('model_spec.schema.json: OK')"

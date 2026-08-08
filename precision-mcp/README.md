@@ -28,6 +28,9 @@ MCP + socket bridge 结构，但不直接启用上游的任意 Python 执行工�
 3. 本 precision addon 使用独立端口 `127.0.0.1:9877`。
 4. `uv` 或 Python 3.10+ 可用。
 
+仓库 CI 会验证规格测试、Python 编译和 JSON Schema；CI 不会伪造 Blender 图形运行结果。
+真实 addon/MCP 集成必须在能够启动 Blender GUI 的 runner 上单独验收。
+
 安装 `blender_addon/precision_addon.py` 后，在 Blender 的 Add-ons 中启用它；然后运行：
 
 ```bash
