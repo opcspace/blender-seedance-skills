@@ -26,3 +26,27 @@ The next runtime test must load the addon in the existing GUI Blender session, e
 - Blender exited before Python startup with a Metal backend crash in `gpu::MTLBackend::metal_is_supported`.
 - `--gpu-backend opengl` is unavailable in this Blender build; the executable reports only `[metal]`.
 - Result: addon runtime and `9877` socket behavior remain unverified on this machine.
+
+## GUI integration passed
+
+On the same machine, the test was retried by launching Blender through macOS GUI permissions:
+
+```text
+Blender 5.2.0 LTS
+127.0.0.1:9877 listening
+CAD status: module_available=false (CAD Sketcher not installed)
+dimensions: [2.0, 4.0, 1.0]
+non_manifold_edges: 0
+ground_z: 0.0
+QA: passed=true, tolerance=0.01, issues=[]
+checkpoint: exists=true, 99626 bytes
+white-model preview: exists=true, 53874 bytes
+commit: ok=true
+abort: removed_new_objects=1
+```
+
+Preview artifact: [`precision_preview.png`](assets/precision_mcp/precision_preview.png).
+Checkpoint artifact: [`precision_checkpoint.blend`](assets/precision_mcp/precision_checkpoint.blend).
+
+This proves the typed precision MVP runtime path on Blender 5.2. It does not prove CAD Sketcher
+constraint solving, because the CAD Sketcher add-on was not installed in this session.

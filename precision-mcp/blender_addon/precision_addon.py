@@ -40,7 +40,12 @@ def _inspect(obj):
     maxs = [max(v[i] for v in bbox) for i in range(3)]
     non_manifold = 0
     if mesh:
-        non_manifold = sum(1 for edge in mesh.edges if not edge.is_manifold)
+        edge_face_counts = {}
+        for polygon in mesh.polygons:
+            for edge_key in polygon.edge_keys:
+                key = tuple(sorted(edge_key))
+                edge_face_counts[key] = edge_face_counts.get(key, 0) + 1
+        non_manifold = sum(1 for edge in mesh.edges if edge_face_counts.get(tuple(sorted(edge.vertices)), 0) != 2)
     return {
         "name": obj.name,
         "type": obj.type,
