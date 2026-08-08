@@ -73,6 +73,12 @@ def _set_dimensions(obj, dimensions):
     bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
 
 
+def _set_metadata(obj, metadata):
+    for key, value in (metadata or {}).items():
+        if isinstance(value, (str, int, float, bool)):
+            obj[key] = value
+
+
 def _look_at(camera, target):
     direction = Vector(target) - camera.location
     camera.rotation_euler = direction.to_track_quat("-Z", "Y").to_euler()
@@ -96,6 +102,35 @@ def execute(command):
         if params.get("dimensions"):
             _set_dimensions(obj, params["dimensions"])
         return _inspect(obj)
+    if name == "precision_create_primitive":
+        primitive = params["primitive"].lower()
+        location = params.get("location") or [0.0, 0.0, 0.0]
+        if primitive == "cube":
+            bpy.ops.mesh.primitive_cube_add(size=1.0, location=location)
+        elif primitive == "cylinder":
+            bpy.ops.mesh.primitive_cylinder_add(vertices=64, radius=0.5, depth=1.0, location=location)
+        elif primitive == "cone":
+            bpy.ops.mesh.primitive_cone_add(vertices=64, radius1=0.5, radius2=0.0, depth=1.0, location=location)
+        elif primitive == "uv_sphere":
+            bpy.ops.mesh.primitive_uv_sphere_add(segments=64, ring_count=32, radius=0.5, location=location)
+        elif primitive == "plane":
+            bpy.ops.mesh.primitive_plane_add(size=1.0, location=location)
+        else:
+            raise ValueError("primitive must be cube, cylinder, cone, uv_sphere or plane")
+        obj = bpy.context.object
+        obj.name = params["name"]
+        if primitive == "plane":
+            dims = params["dimensions"]
+            if len(dims) != 3 or dims[0] <= 0 or dims[1] <= 0:
+                raise ValueError("plane dimensions must contain positive X and Y values")
+            obj.scale.x = float(dims[0])
+            obj.scale.y = float(dims[1])
+            bpy.context.view_layer.objects.active = obj
+            bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
+        else:
+            _set_dimensions(obj, params["dimensions"])
+        _set_metadata(obj, params.get("metadata"))
+        return _inspect(obj)
     if name == "precision_set_dimensions":
         obj = _require_object(params["name"])
         _set_dimensions(obj, params["dimensions"])
@@ -104,6 +139,19 @@ def execute(command):
         target = params.get("name")
         objects = [_require_object(target)] if target else [o for o in bpy.context.scene.objects if o.name.startswith("PRECISION_")]
         return {"objects": [_inspect(o) for o in objects]}
+    if name == "precision_validate_scene":
+        tolerance = float(params.get("tolerance", 0.01))
+        if tolerance <= 0 or tolerance >= 1:
+            raise ValueError("tolerance must be between 0 and 1")
+        objects = [o for o in bpy.context.scene.objects if o.name.startswith("PRECISION_") and o.type == "MESH"]
+        issues = []
+        for obj in objects:
+            report = _inspect(obj)
+            if params.get("require_ground_contact", True) and report["ground_z"] < -tolerance:
+                issues.append({"object": obj.name, "code": "below_ground", "ground_z": report["ground_z"]})
+            if report["non_manifold_edges"] and obj.get("allow_non_manifold") is not True:
+                issues.append({"object": obj.name, "code": "non_manifold_edges", "count": report["non_manifold_edges"]})
+        return {"passed": not issues, "tolerance": tolerance, "object_count": len(objects), "issues": issues}
     if name == "precision_frame_camera":
         obj = _require_object(params["name"])
         camera = bpy.context.scene.camera
@@ -132,6 +180,11 @@ def execute(command):
         filepath = os.path.abspath(params["filepath"])
         scene.render.filepath = filepath
         bpy.ops.render.render(write_still=True)
+        return {"filepath": filepath, "exists": os.path.exists(filepath)}
+    if name == "precision_save_checkpoint":
+        filepath = os.path.abspath(params["filepath"])
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        bpy.ops.wm.save_as_mainfile(filepath=filepath, copy=True)
         return {"filepath": filepath, "exists": os.path.exists(filepath)}
     if name == "precision_commit":
         return {"ok": True}

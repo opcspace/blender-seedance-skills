@@ -25,6 +25,8 @@ For the high-precision plan, read `references/high-precision-architecture.md`. T
 
 When the requested asset is dimension-driven (mechanical, architectural, panel, opening or hard-surface profile), route the precision pass through CAD Sketcher if its adapter and solver report are available. If they are not available, produce an L0/L1 blockout and state that constraint-driven precision is pending.
 
+When `precision-mcp` is available, use its parameterized primitive and geometry-QA tools for the dimension pass. The commercial deliverable gate is an explicit tolerance report, not a visually plausible screenshot. Human/creature likeness from a single reference remains an approximation unless additional scans, measurements or retopology are supplied.
+
 Every generated library asset should have:
 
 - a named collection `BASE_<category>_<asset>`;

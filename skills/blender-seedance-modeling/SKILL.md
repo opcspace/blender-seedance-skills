@@ -12,6 +12,7 @@ This is the top-level workflow Skill. It keeps the production chain coherent whi
 | User intent | Skill to use | Output |
 |---|---|---|
 | “按提示词建模”, “根据参考图建模”, “修改 Blender 模型” | `blender-modeling` | Editable `.blend` scene |
+| “高精度白模”, “按尺寸建模”, “CAD 级比例”, “可商用资产” | `blender-modeling` + `precision-mcp/` | Checkpointed `.blend` + tolerance/geometry QA report |
 | “做一个人体/动物/道具/建筑/机械白模”, “找 BaseMesh”, “整理白模资源库” | `blender-base-mesh-library` | Categorized reusable BaseMesh |
 | “渲染白模”, “生成白模 MP4”, “用 Jimeng 上传” | `blender-white-model-render` | Still, MP4, Jimeng handoff |
 | “白模转 Seedance 2.5”, “套用官方案例”, “火山引擎生成视频” | `seedance-white-model-video` | Prompt, Jimeng link or Ark task result |

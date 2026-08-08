@@ -46,12 +46,13 @@ export PRECISION_WORKDIR=/absolute/path/to/your/blender/project
 ## 工具路线
 
 1. `precision_begin`：建立本次建模事务并清理指定前缀；MVP 运行前请先由上层 Skill 写入 `.blend` 检查点。
-2. `precision_create_mesh`：按顶点/面或 primitives 生成命名对象，并写入目标尺寸。
+2. `precision_create_mesh` / `precision_create_primitive`：按显式网格或原生参数体生成命名对象，并写入目标尺寸。
 3. `precision_set_dimensions`：按世界尺寸修正对象，避免 scale 语义混乱。
-4. `precision_inspect_geometry`：返回尺寸、世界包围盒、顶点/面数、法线和非流形检查。
+4. `precision_inspect_geometry` / `precision_validate_scene`：返回尺寸、包围盒、拓扑和接地 QA。
 5. `precision_frame_camera`：按对象包围盒和目标占幅自动构图。
-6. `precision_render_white_model`：使用 Workbench 白模渲染预览。
-7. `precision_commit` / `precision_abort`：提交事务或停止继续操作；MVP 的 abort 不会伪造自动恢复，真正的恢复由上层 Skill 的 `.blend` 检查点完成。
+6. `precision_save_checkpoint`：在工作目录内写入 `.blend` 检查点。
+7. `precision_render_white_model`：使用 Workbench 白模渲染预览。
+8. `precision_commit` / `precision_abort`：提交事务或停止继续操作；abort 不伪造自动恢复，恢复依赖检查点。
 
 后续阶段会增加 `precision_create_sketch`、`precision_add_constraint` 和
 `precision_solver_report`，对接 CAD Sketcher；这部分不会把 GPL-3.0 的 CAD Sketcher 源码复制进本 MIT 仓库。

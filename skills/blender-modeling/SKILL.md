@@ -12,6 +12,7 @@ This Skill owns the editable 3D scene. It turns a brief or reference image into 
 - **Prompt mode**: no image is supplied. Convert the request into subject, scale, silhouette, construction strategy, camera, animation and constraints, then build in passes.
 - **Reference mode**: an AI image, sketch, screenshot or board is supplied. Inspect it first; separate observed geometry from inferred hidden geometry; keep the source in `CODEX_Reference`; build the editable approximation in `CODEX_Model`; apply later user changes as patches.
 - **Library mode**: the user names a BaseMesh category, asset type or search keyword. Read `blender-base-mesh-library` and select the right white-model family before modeling.
+- **Precision mode**: the request contains target dimensions, CAD-like profiles, mechanical/architectural fit, repeatable commercial output or an explicit accuracy tolerance. Use the companion at `precision-mcp/`, create a checkpoint first, and do not claim high precision until `precision_validate_scene` passes.
 
 ## Workflow
 
@@ -22,6 +23,8 @@ This Skill owns the editable 3D scene. It turns a brief or reference image into 
 5. Build in this order: silhouette/blockout → proportion check → construction/modifiers → materials → camera/stage → animation.
 6. After each pass, inspect object names, transforms, active camera and frame range through MCP.
 7. Apply modifications as targeted patches. Preserve named objects and the camera unless the user asks to rebuild.
+
+For precision mode, the mandatory order is: checkpoint → parameterized parts → exact dimensions → geometry inspection → scene QA → camera framing → white-model render. A prompt-only primitive blockout is not a high-precision deliverable.
 
 ## Prompt contract
 
