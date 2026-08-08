@@ -1,0 +1,17 @@
+.DS_Store
+__pycache__/
+*.py[cod]
+.venv/
+.env
+.env.*
+*.blend
+*.blend1
+*.mp4
+*.mov
+*.png
+*.jpg
+*.jpeg
+*.webp
+token
+tokens/
+
