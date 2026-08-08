@@ -23,6 +23,8 @@ Read `references/base-mesh-catalog.md` for the full catalog and search terms.
 
 For the high-precision plan, read `references/high-precision-architecture.md`. The current restricted MCP path is reliable for L0 blockout and partial L1 structured white models; do not label a primitive-only result as L2 high-precision BaseMesh.
 
+When the requested asset is dimension-driven (mechanical, architectural, panel, opening or hard-surface profile), route the precision pass through CAD Sketcher if its adapter and solver report are available. If they are not available, produce an L0/L1 blockout and state that constraint-driven precision is pending.
+
 Every generated library asset should have:
 
 - a named collection `BASE_<category>_<asset>`;

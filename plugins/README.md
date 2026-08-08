@@ -6,6 +6,7 @@ The local test machine has these add-ons installed and validated:
 | --- | --- | --- | --- |
 | Blender MCP Server | server 1.29.0; add-on metadata 0.5.1 | 4.0+ | MCP initialize, tools/list and modeling calls passed |
 | 即梦 Seedance 2.5 预览渲染上传器 | 1.0.0 | 3.6+ | Add-on load and `jimeng.load_config` passed; GUI upload remains manual |
+| CAD Sketcher | not installed on the test machine | 4.2+ | Recommended precision dependency; installation and solver adapter still pending |
 
 ## Why the add-on binaries are not vendored
 
@@ -23,3 +24,6 @@ Install the separately obtained `jimeng_blender_uploader` ZIP through `Edit > Pr
 
 The original package name used in the local test was `jimeng_blender_uploader-mac-cn-1.0.0.zip`. Obtain it from an authorized source and verify its license before redistribution.
 
+### CAD Sketcher precision layer
+
+CAD Sketcher is an external GPL-3.0 project by [hlorus/CAD_Sketcher](https://github.com/hlorus/CAD_Sketcher). It supports constraint-based 2D geometry and editable non-destructive sketches. Install it separately from the official project or Blender extension flow; do not copy it into this MIT-licensed repository. The high-precision Skill must wait for a solver/constraint report before claiming CAD-level accuracy.

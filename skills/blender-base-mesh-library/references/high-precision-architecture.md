@@ -44,6 +44,20 @@ Implement these as typed, allow-listed MCP tools or a companion Blender add-on. 
 
 Each tool should validate arguments, operate only on named objects, return before/after measurements, and reject paths outside an approved workspace.
 
+## 3.1 CAD Sketcher integration
+
+For dimension-driven profiles, use CAD Sketcher as the precision back end rather than asking the model to move vertices freely:
+
+1. Codex emits a sketch plan: plane, entities, construction geometry, geometric constraints, dimensional constraints and named parameters.
+2. A Blender adapter creates the sketch and applies geometric constraints first (parallel, perpendicular, tangent, coincident, equal), then dimensional constraints (distance, radius, angle).
+3. The adapter checks the solver state for conflicts/under-constrained entities and returns the constraint report.
+4. Convert the constrained sketch to a curve/mesh and continue with Blender modifiers and assembly operations.
+5. Keep the sketch as the editable source; never bake and discard it before QA.
+
+CAD Sketcher is especially suitable for props, architectural plans, hard-surface profiles, openings, panels and mechanical parts. It is not the sole solution for organic characters, creatures, vegetation or terrain; those need landmark, symmetry, sculpt/procedural and contact-point strategies.
+
+The local Blender MCP tool list does not currently expose CAD Sketcher operators, so a safe adapter MCP layer is still required. Do not claim CAD constraints are active until the adapter can create the sketch and return its solver state.
+
 ## 4. Seven category templates
 
 - **Character**: landmarks for head, shoulders, pelvis, elbows, knees and feet; mirror first; separate proportions from pose; rig only after the neutral base passes.
@@ -71,4 +85,3 @@ Each tool should validate arguments, operate only on named objects, return befor
 - **L2**: high-precision editable BaseMesh with arbitrary mesh construction, topology inspection, reference comparison and checkpoint save.
 
 The existing MCP workflow currently reaches L0 reliably and parts of L1. It should not claim L2 until the precision tool layer is installed and the acceptance gates pass.
-
