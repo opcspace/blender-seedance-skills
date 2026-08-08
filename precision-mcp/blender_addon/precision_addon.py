@@ -7,6 +7,7 @@ bl_info = {
 }
 
 import json
+import importlib.util
 import math
 import os
 import socket
@@ -140,6 +141,26 @@ def execute(command):
             _set_dimensions(obj, params["dimensions"])
         _set_metadata(obj, params.get("metadata"))
         return _inspect(obj)
+    if name == "precision_cad_status":
+        scene = bpy.context.scene
+        has_scene_props = hasattr(scene, "sketcher")
+        module_available = importlib.util.find_spec("CAD_Sketcher") is not None
+        registered = False
+        if module_available:
+            try:
+                cad_module = __import__("CAD_Sketcher")
+                registered = bool(getattr(getattr(cad_module, "global_data", None), "registered", False))
+            except Exception:
+                registered = False
+        return {
+            "available": module_available and has_scene_props,
+            "module_available": module_available,
+            "scene_properties_available": has_scene_props,
+            "solver_registered": registered,
+            "blender_version": list(bpy.app.version),
+            "minimum_blender_version": [5, 0, 0],
+            "license": "GPL-3.0-or-later (external dependency)",
+        }
     if name == "precision_set_dimensions":
         obj = _require_object(params["name"])
         _set_dimensions(obj, params["dimensions"])

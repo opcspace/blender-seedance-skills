@@ -47,12 +47,13 @@ export PRECISION_WORKDIR=/absolute/path/to/your/blender/project
 
 1. `precision_begin`：建立本次建模事务；默认不删除已有对象，只有显式传入 `clean_existing=true` 才清理前缀对象。MVP 运行前仍建议由上层 Skill 写入 `.blend` 检查点。
 2. `precision_create_mesh` / `precision_create_primitive`：按显式网格或原生参数体生成命名对象，并写入目标尺寸。
-3. `precision_set_dimensions`：按世界尺寸修正对象，避免 scale 语义混乱。
-4. `precision_inspect_geometry` / `precision_validate_scene`：返回尺寸、包围盒、拓扑和接地 QA。
-5. `precision_frame_camera`：按对象包围盒和目标占幅自动构图。
-6. `precision_save_checkpoint`：在工作目录内写入 `.blend` 检查点。
-7. `precision_render_white_model`：使用 Workbench 白模渲染预览。
-8. `precision_commit` / `precision_abort`：提交事务或删除本事务新建对象；已有对象不会被 Abort 自动恢复，跨文件恢复仍依赖检查点。
+3. `precision_cad_status`：报告 CAD Sketcher 和 solver 是否真的在当前 Blender 会话中启用。
+4. `precision_set_dimensions`：按世界尺寸修正对象，避免 scale 语义混乱。
+5. `precision_inspect_geometry` / `precision_validate_scene`：返回尺寸、包围盒、拓扑和接地 QA。
+6. `precision_frame_camera`：按对象包围盒和目标占幅自动构图。
+7. `precision_save_checkpoint`：在工作目录内写入 `.blend` 检查点。
+8. `precision_render_white_model`：使用 Workbench 白模渲染预览。
+9. `precision_commit` / `precision_abort`：提交事务或删除本事务新建对象；已有对象不会被 Abort 自动恢复，跨文件恢复仍依赖检查点。
 
 上层 Skill 先把自然语言或参考图整理成 `schemas/model_spec.schema.json`，再用
 `precision_mcp.spec.validate_spec` 检查规格。七类资产共享同一份尺寸/容差协议；角色和生物的

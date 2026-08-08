@@ -82,6 +82,12 @@ def precision_create_primitive(name: str, primitive: str, dimensions: list[float
 
 
 @mcp.tool()
+def precision_cad_status() -> str:
+    """Report whether CAD Sketcher and its solver are available in the connected Blender session."""
+    return _call("precision_cad_status")
+
+
+@mcp.tool()
 def precision_set_dimensions(name: str, dimensions: list[float], apply_scale: bool = True) -> str:
     """Set exact world dimensions and optionally apply scale."""
     return _call("precision_set_dimensions", {"name": name, "dimensions": dimensions, "apply_scale": apply_scale})
