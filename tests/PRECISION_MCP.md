@@ -48,5 +48,48 @@ abort: removed_new_objects=1
 Preview artifact: [`precision_preview.png`](assets/precision_mcp/precision_preview.png).
 Checkpoint artifact: [`precision_checkpoint.blend`](assets/precision_mcp/precision_checkpoint.blend).
 
-This proves the typed precision MVP runtime path on Blender 5.2. It does not prove CAD Sketcher
-constraint solving, because the CAD Sketcher add-on was not installed in this session.
+This proves the typed precision runtime path on Blender 5.2. The CAD constraint result is recorded below.
+
+## CAD Sketcher solver verification
+
+CAD Sketcher 0.3.0 was installed from its official extension source and its bundled macOS ARM64
+CPython 3.13 `slvs` wheel was installed into Blender's user Python site-packages. After restarting
+the GUI session, `precision_cad_status` returned:
+
+```text
+available=true
+scene_properties_available=true
+solver_available=true
+operator_available=true
+solver_registered=true
+```
+
+The next verification is `tests/precision_cad_socket_test.py`, which creates a 3.0 x 2.0 rectangle,
+adds horizontal/vertical and width/height constraints, and requires a successful solver result.
+
+The CAD test was executed successfully:
+
+```text
+CAD_STATUS: available=true, solver_available=true, operator_available=true, solver_registered=true
+CAD_RECTANGLE: solved=true, solver_state=OKAY, dof=0, entity_count=8, constraint_count=6
+target_dimensions: [3.0, 2.0]
+```
+
+Together, the two tests prove the dimension-driven mesh path and a real constraint-solved sketch path.
+
+`tests/precision_seven_category_socket_test.py` also submits a repeatable `model_spec` through the
+MCP for all seven BaseMesh categories. Each category creates two named parameterized parts and passes
+the same geometry/ground QA contract. This verifies category routing and reproducibility; it does not
+claim that two primitive parts are a finished character, creature or environment asset.
+
+The live Blender 5.2 output was:
+
+```text
+character parts=2 qa=passed
+creature parts=2 qa=passed
+props parts=2 qa=passed
+architecture parts=2 qa=passed
+hard_surface parts=2 qa=passed
+environment parts=2 qa=passed
+abstract parts=2 qa=passed
+```

@@ -7,7 +7,7 @@ bl_info = {
 }
 
 import json
-import importlib.util
+import importlib
 import math
 import os
 import socket
@@ -92,6 +92,15 @@ def _look_at(camera, target):
     camera.rotation_euler = direction.to_track_quat("-Z", "Y").to_euler()
 
 
+def _cad_import(module):
+    for package in ("bl_ext.user_default.CAD_Sketcher", "CAD_Sketcher"):
+        try:
+            return importlib.import_module(package + module)
+        except ModuleNotFoundError:
+            continue
+    raise RuntimeError("CAD Sketcher extension is not enabled in this Blender session")
+
+
 def execute(command):
     global _transaction_prefix, _transaction_preexisting
     name = command.get("type")
@@ -146,25 +155,108 @@ def execute(command):
             _set_dimensions(obj, params["dimensions"])
         _set_metadata(obj, params.get("metadata"))
         return _inspect(obj)
+    if name == "precision_build_model_spec":
+        spec = params.get("spec") or {}
+        category = spec.get("category")
+        dimensions = spec.get("dimensions")
+        parts = spec.get("parts")
+        allowed_categories = {"character", "creature", "props", "architecture", "hard_surface", "environment", "abstract"}
+        if category not in allowed_categories:
+            raise ValueError("model_spec.category is not a supported BaseMesh category")
+        if not isinstance(dimensions, list) or len(dimensions) != 3 or any(float(v) <= 0 for v in dimensions):
+            raise ValueError("model_spec.dimensions must contain three positive numbers")
+        if not isinstance(parts, list) or not parts:
+            raise ValueError("model_spec.parts must contain at least one part")
+        prefix = str(spec.get("prefix", "PRECISION_"))
+        asset = str(spec.get("asset", category))
+        created = []
+        for index, part in enumerate(parts):
+            if not isinstance(part, dict) or not part.get("name"):
+                raise ValueError(f"model_spec.parts[{index}] must have a name")
+            part_dims = part.get("dimensions")
+            if not isinstance(part_dims, list) or len(part_dims) != 3 or any(float(v) <= 0 for v in part_dims):
+                raise ValueError(f"model_spec.parts[{index}].dimensions must contain three positive numbers")
+            part_name = f"{prefix}{asset}_{part['name']}"
+            result = execute({"type": "precision_create_primitive", "params": {
+                "name": part_name,
+                "primitive": part.get("primitive", "cube"),
+                "dimensions": part_dims,
+                "location": part.get("location", [0.0, 0.0, float(part_dims[2]) / 2.0]),
+                "metadata": {
+                    "base_mesh_category": category,
+                    "source_prompt": str(spec.get("source_prompt", "")),
+                    "reference_confidence": float(spec.get("reference_confidence", 1.0)),
+                    "model_spec_asset": asset,
+                },
+            }})
+            created.append(result)
+        return {"category": category, "asset": asset, "target_dimensions": dimensions, "parts": created, "part_count": len(created)}
     if name == "precision_cad_status":
         scene = bpy.context.scene
         has_scene_props = hasattr(scene, "sketcher")
-        module_available = importlib.util.find_spec("CAD_Sketcher") is not None
-        registered = False
-        if module_available:
-            try:
-                cad_module = __import__("CAD_Sketcher")
-                registered = bool(getattr(getattr(cad_module, "global_data", None), "registered", False))
-            except Exception:
-                registered = False
+        solver_available = False
+        try:
+            import slvs  # noqa: F401
+            solver_available = True
+        except Exception:
+            solver_available = False
+        sketcher_ops = getattr(bpy.ops, "sketcher", None)
+        operator_available = bool(sketcher_ops and hasattr(sketcher_ops, "slvs_add_sketch"))
+        registered = has_scene_props and solver_available and operator_available
         return {
-            "available": module_available and has_scene_props,
-            "module_available": module_available,
+            "available": registered,
+            "module_available": has_scene_props,
             "scene_properties_available": has_scene_props,
+            "solver_available": solver_available,
+            "operator_available": operator_available,
             "solver_registered": registered,
             "blender_version": list(bpy.app.version),
             "minimum_blender_version": [5, 0, 0],
             "license": "GPL-3.0-or-later (external dependency)",
+        }
+    if name == "precision_create_cad_rectangle":
+        width = float(params["width"])
+        height = float(params["height"])
+        if width <= 0 or height <= 0:
+            raise ValueError("width and height must be positive")
+        if not hasattr(bpy.context.scene, "sketcher"):
+            raise RuntimeError("CAD Sketcher scene properties are not available")
+        sketch_ref = _cad_import(".model.sketch_ref")
+        curve_ref = _cad_import(".model.curve_ref")
+        solver = _cad_import(".curve_solver")
+        curve = bpy.data.hair_curves.new(params["name"] + "_Sketch")
+        obj = bpy.data.objects.new(params["name"], curve)
+        bpy.context.scene.collection.objects.link(obj)
+        sketch_ref.stamp_sketch_props(obj)
+        sketch = sketch_ref.Sketch(obj)
+        bpy.context.scene.sketcher.active_sketch_object = obj
+        p0 = curve_ref.PointRef.create(sketch, (0.0, 0.0), fixed=True, name="Origin")
+        p1 = curve_ref.PointRef.create(sketch, (width, 0.0), name="WidthPoint")
+        p2 = curve_ref.PointRef.create(sketch, (width, height), name="CornerPoint")
+        p3 = curve_ref.PointRef.create(sketch, (0.0, height), name="HeightPoint")
+        lines = [
+            curve_ref.LineRef.create(sketch, p0, p1, name="Bottom"),
+            curve_ref.LineRef.create(sketch, p1, p2, name="Right"),
+            curve_ref.LineRef.create(sketch, p2, p3, name="Top"),
+            curve_ref.LineRef.create(sketch, p3, p0, name="Left"),
+        ]
+        constraints = sketch.constraints
+        constraints.add_horizontal(curve_id_1=lines[0].curve_id)
+        constraints.add_vertical(curve_id_1=lines[1].curve_id)
+        constraints.add_horizontal(curve_id_1=lines[2].curve_id)
+        constraints.add_vertical(curve_id_1=lines[3].curve_id)
+        constraints.add_distance(init=True, curve_id_1=p0.curve_id, curve_id_2=p1.curve_id, value=width, align="HORIZONTAL", flip=False)
+        constraints.add_distance(init=True, curve_id_1=p0.curve_id, curve_id_2=p3.curve_id, value=height, align="VERTICAL", flip=False)
+        solved = bool(solver.solve_system(bpy.context, sketch=sketch))
+        sketch.geometry_solved = solved
+        return {
+            "name": obj.name,
+            "solved": solved,
+            "solver_state": sketch.solver_state,
+            "dof": sketch.dof,
+            "entity_count": len(curve.curves),
+            "constraint_count": sum(1 for _ in constraints.all),
+            "target_dimensions": [width, height],
         }
     if name == "precision_set_dimensions":
         obj = _require_object(params["name"])

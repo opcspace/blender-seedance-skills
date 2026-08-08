@@ -6,7 +6,7 @@ The local test machine has these add-ons installed and validated:
 | --- | --- | --- | --- |
 | Blender MCP Server | server 1.29.0; add-on metadata 0.5.1 | 4.0+ | MCP initialize, tools/list and modeling calls passed |
 | 即梦 Seedance 2.5 预览渲染上传器 | 1.0.0 | 3.6+ | Add-on load and `jimeng.load_config` passed; GUI upload remains manual |
-| CAD Sketcher | not installed on the test machine | 0.3.0; Blender 5.0+ | External GPL-3.0-or-later precision dependency; installation, solver adapter and runtime verification still pending |
+| CAD Sketcher | 0.3.0 + slvs solver | Blender 5.2.0 LTS | External GPL-3.0-or-later dependency; installed and constraint rectangle solver test passed |
 
 ## Why the add-on binaries are not vendored
 

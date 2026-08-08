@@ -88,6 +88,18 @@ def precision_cad_status() -> str:
 
 
 @mcp.tool()
+def precision_create_cad_rectangle(name: str, width: float, height: float) -> str:
+    """Create and solve a CAD Sketcher rectangle with fixed origin and dimensional constraints."""
+    return _call("precision_create_cad_rectangle", {"name": name, "width": width, "height": height})
+
+
+@mcp.tool()
+def precision_build_model_spec(spec: dict[str, Any]) -> str:
+    """Build a repeatable named asset from a validated model_spec parts list."""
+    return _call("precision_build_model_spec", {"spec": spec})
+
+
+@mcp.tool()
 def precision_set_dimensions(name: str, dimensions: list[float], apply_scale: bool = True) -> str:
     """Set exact world dimensions and optionally apply scale."""
     return _call("precision_set_dimensions", {"name": name, "dimensions": dimensions, "apply_scale": apply_scale})
