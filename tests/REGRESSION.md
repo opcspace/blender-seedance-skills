@@ -25,3 +25,8 @@ Use `create_objects_batch`, `create_material`, `assign_materials_batch`, `add_mo
 
 For a white model, prefer `BLENDER_WORKBENCH` and an output path under the allowed home directory. Do not use `/tmp` for MCP render output in this local configuration.
 
+## Screenshot evidence
+
+![Robot white-model regression render](assets/codex_robot_test.png)
+
+The screenshot is a 640×640 Workbench render from the prompt-blockout case. It demonstrates the four named mesh parts, neutral presentation, camera framing and Bevel modifier result.

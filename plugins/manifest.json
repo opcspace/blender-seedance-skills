@@ -1,0 +1,28 @@
+{
+  "blender": {
+    "tested_version": "5.2.0 LTS",
+    "required": true
+  },
+  "addons": [
+    {
+      "id": "blender-mcp-server",
+      "server_version_tested": "1.29.0",
+      "addon_metadata_version": "0.5.1",
+      "endpoint": "http://127.0.0.1:8400/mcp",
+      "status": "tested locally; install from upstream distribution"
+    },
+    {
+      "id": "jimeng_blender_uploader",
+      "version": "1.0.0",
+      "blender_minimum": "3.6.0",
+      "panel": "View3D > Sidebar > Jimeng",
+      "tested_operations": ["addon_enable", "jimeng.load_config"],
+      "status": "tested locally; package not vendored"
+    }
+  ],
+  "security": {
+    "mcp_token": "local-only",
+    "api_keys": "local-only",
+    "third_party_binaries": "not redistributed"
+  }
+}

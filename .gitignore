@@ -15,3 +15,6 @@ __pycache__/
 token
 tokens/
 
+# Keep regression evidence while ignoring ad-hoc renders.
+!tests/assets/
+!tests/assets/*.png
