@@ -7,6 +7,8 @@ description: Convert Blender white-model previews, BaseMesh scenes, reference im
 
 This Skill owns the handoff from Blender white model to Seedance. Read `references/case-library.md` for built-in official case aliases.
 
+When the user supplies a Dreamina URL, extract and decode its `prompt` query parameter before writing a new prompt. Preserve the URL-provided subject and constraints; use the case library only to structure Blender preparation and action beats. The helper script is `scripts/extract_dreamina_prompt.py`.
+
 ## Select a case
 
 Supported aliases:
