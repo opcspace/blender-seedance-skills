@@ -17,8 +17,8 @@ This Skill owns the editable 3D scene. It turns a brief or reference image into 
 
 1. Check local prerequisites with the canonical environment checker in `blender-seedance-modeling`.
 2. Inspect the current Blender scene with Blender MCP. If MCP is unavailable, state that exact blocker and use the local Blender executable only when authorized.
-3. Save a checkpoint before destructive changes. Never silently replace a user's scene.
-4. Create or reuse `CODEX_Model`, `CODEX_Reference`, `CODEX_Stage` and `CODEX_Exports` collections.
+3. Save a checkpoint before destructive changes when a save tool or Blender GUI is available. If the connected MCP tool set has no save operation, do not claim a checkpoint was written; preserve the scene by using targeted edits and report the limitation.
+4. Use the `CODEX_Model`, `CODEX_Reference`, `CODEX_Stage` and `CODEX_Exports` names as a convention. If collection-management tools are unavailable, use object prefixes and report that all objects remain in the current collection.
 5. Build in this order: silhouette/blockout → proportion check → construction/modifiers → materials → camera/stage → animation.
 6. After each pass, inspect object names, transforms, active camera and frame range through MCP.
 7. Apply modifications as targeted patches. Preserve named objects and the camera unless the user asks to rebuild.
@@ -45,6 +45,12 @@ deliverable: editable .blend or handoff to another Skill
 - Fix silhouette and camera errors before micro-detail.
 - Mark inferred geometry with custom properties such as `reference_confidence`.
 - Keep unrestricted code execution disabled in Blender MCP.
+
+## Current MCP capability boundary
+
+The validated Blender MCP 1.29 tool set can create, transform, duplicate, delete, inspect, material-assign, add modifiers, set cameras/lights, render stills, and keyframe animation. It does not currently expose collection creation/movement, custom-property editing, saving the active `.blend`, image upload, or Jimeng submission. Treat those as manual GUI or explicitly authorized fallback steps rather than silently claiming automation.
+
+On Blender 5.2 with a Chinese UI, the material node is localized to `原理化 BSDF`. The MCP material helpers that look up the literal English node name may fail. Prefer Workbench for white models; if a shader is necessary, call `list_shader_nodes` and then `set_node_value` using the returned node name and socket name.
 
 ## Handoff
 

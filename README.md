@@ -20,6 +20,10 @@ cp -R skills/* ~/.codex/skills/
 
 使用前需要在本机安装 Blender，并运行 Blender MCP add-on。Jimeng 上传面板和火山引擎 API 是可选的外部依赖，本仓库不包含第三方插件、账号信息或 API 密钥。详细环境说明见 `skills/blender-seedance-modeling/references/local-setup.md`。
 
+## 已验证能力与边界
+
+在 Blender 5.2.0 LTS + Blender MCP 1.29.0 上，已验证基础体块创建、批量建模、定向修改、Bevel、相机/灯光、Workbench 白模静帧和变换关键帧。默认受限 MCP 工具集目前没有创建/移动 Collection、写入自定义属性、保存当前 `.blend`、上传图片或点击 Jimeng 面板的工具；这些步骤会被明确报告为 GUI/外部交接，而不会被伪装成自动完成。完整矩阵见 `skills/blender-seedance-modeling/references/mcp-capability-matrix.md`。
+
 ## 两种建模入口
 
 1. 直接提示词：描述对象、风格、比例、部件、镜头和交付格式，Skill 在 Blender 中创建可继续编辑的场景。
@@ -34,4 +38,3 @@ cp -R skills/* ~/.codex/skills/
 ## 免责声明
 
 本项目只提供本地工作流编排和辅助脚本，不保证第三方服务的可用性、模型输出结果、账号权限或 API 价格。请在公开发布模型、视频和素材前自行确认版权、肖像权、商标和平台规则。
-

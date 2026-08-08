@@ -31,6 +31,8 @@ Every generated library asset should have:
 - custom properties: `base_mesh_category`, `base_mesh_purpose`, `reference_confidence`, `rig_ready`, `source_prompt`;
 - a preview camera or a thumbnail render when the asset is intended for visual browsing.
 
+If the connected MCP tool set cannot create collections or custom properties, preserve the contract as naming and a report: use the `BASE_<category>_<asset>` and `BASE_<asset>_ROOT` prefixes, keep the asset isolated by object names, and return the metadata fields in the handoff text. Do not claim that Blender custom properties or a library `.blend` checkpoint were written unless those capabilities are available.
+
 ## Selection workflow
 
 1. Extract category, subcategory, style, scale, rig requirement and intended camera distance.

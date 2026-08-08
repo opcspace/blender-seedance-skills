@@ -34,6 +34,10 @@ This is the top-level workflow Skill. It keeps the production chain coherent whi
 - Do not enable unrestricted Blender MCP code execution unless explicitly requested.
 - Never guess a Volcengine model ID or expose a local file publicly without approval.
 
+## Tested capability boundary
+
+The local Blender MCP 1.29 workflow has been tested for primitive blockout, targeted transforms, Bevel modifiers, camera/light setup, Workbench still rendering and transform keyframes. It has no native collection-management, active-file-save, image-upload or Jimeng-submit tool in the default restricted tool list. The router must report those as pending/manual handoff steps.
+
 ## Canonical local references
 
 - Local setup and environment checker: `references/local-setup.md` and `scripts/check_environment.py`.

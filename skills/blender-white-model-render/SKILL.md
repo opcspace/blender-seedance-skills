@@ -26,6 +26,13 @@ This Skill owns neutral white-model presentation and preview export. It does not
 8. For an existing file choose `本地上传` and click `上传至即梦生成`.
 9. Verify the MP4 exists and record the generated Dreamina link as a handoff artifact.
 
+## MCP-safe rendering
+
+- In the validated local setup, MCP render paths must be under the allowed home directory (for example `~/project/blender/exports/asset_camera.png`); `/tmp` may be rejected even though it is writable by the operating system.
+- Workbench is the reliable default for a white model and avoids shader-node localization problems.
+- On Blender 5.2 Chinese UI, `set_material_property` may fail because the add-on searches for the English node name `Principled BSDF`. If a material property is needed, call `list_shader_nodes`, find the returned `BSDF_PRINCIPLED` node, and use `set_node_value` with its returned node name and socket name.
+- The current MCP tool set can render stills but does not save the active `.blend` or invoke the Jimeng operator. A `.blend` checkpoint and Jimeng upload therefore remain explicit GUI steps unless additional tools are enabled.
+
 ## White-model quality rules
 
 - Preserve the model's silhouette and proportions; avoid dramatic materials that obscure form.
