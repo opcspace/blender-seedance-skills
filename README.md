@@ -38,6 +38,8 @@ cp -R skills/* ~/.codex/skills/
 
 商业使用时请保留原版权声明和 MIT License 文本；如果在产品、文档或发布页中展示本项目来源，请注明 `OPCspace / Blender Seedance Skills` 并链接到本仓库。Blender、Jimeng、Dreamina、Seedance、Volcengine/Ark 等名称和服务属于其各自权利人；第三方插件、模型、示例素材和 API 仍受其自身许可及服务条款约束。
 
+高精度白模的商业交付分级、证据包和第三方许可边界见 [`COMMERCIAL_USE.md`](COMMERCIAL_USE.md)。
+
 ## 免责声明
 
 本项目只提供本地工作流编排和辅助脚本，不保证第三方服务的可用性、模型输出结果、账号权限或 API 价格。请在公开发布模型、视频和素材前自行确认版权、肖像权、商标和平台规则。
