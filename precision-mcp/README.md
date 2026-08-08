@@ -54,6 +54,10 @@ export PRECISION_WORKDIR=/absolute/path/to/your/blender/project
 7. `precision_render_white_model`：使用 Workbench 白模渲染预览。
 8. `precision_commit` / `precision_abort`：提交事务或删除本事务新建对象；已有对象不会被 Abort 自动恢复，跨文件恢复仍依赖检查点。
 
+上层 Skill 先把自然语言或参考图整理成 `schemas/model_spec.schema.json`，再用
+`precision_mcp.spec.validate_spec` 检查规格。七类资产共享同一份尺寸/容差协议；角色和生物的
+外形仍属于参考推断，只有测量数据、扫描或人工校正提供的尺寸才可以进入严格精度验收。
+
 后续阶段会增加 `precision_create_sketch`、`precision_add_constraint` 和
 `precision_solver_report`，对接 CAD Sketcher；这部分不会把 GPL-3.0 的 CAD Sketcher 源码复制进本 MIT 仓库。
 

@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Blender Precision Model Spec",
+  "type": "object",
+  "required": ["category", "dimensions", "parts"],
+  "properties": {
+    "category": {
+      "type": "string",
+      "enum": ["character", "creature", "props", "architecture", "hard_surface", "environment", "abstract"]
+    },
+    "dimensions": {"type": "array", "prefixItems": [{"type": "number", "exclusiveMinimum": 0}, {"type": "number", "exclusiveMinimum": 0}, {"type": "number", "exclusiveMinimum": 0}], "minItems": 3, "maxItems": 3},
+    "tolerance": {"type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1, "default": 0.01},
+    "parts": {"type": "array", "minItems": 1, "items": {"type": "object", "required": ["name"], "properties": {"name": {"type": "string"}, "primitive": {"type": "string"}, "dimensions": {"type": "array", "minItems": 3, "maxItems": 3, "items": {"type": "number", "exclusiveMinimum": 0}}, "location": {"type": "array", "minItems": 3, "maxItems": 3, "items": {"type": "number"}}}}},
+    "reference_confidence": {"type": "number", "minimum": 0, "maximum": 1},
+    "source_prompt": {"type": "string"}
+  }
+}
