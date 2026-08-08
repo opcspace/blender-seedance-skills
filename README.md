@@ -27,6 +27,8 @@ cp -R skills/* ~/.codex/skills/
 
 六个官方 Dreamina 白模案例的真实 Blender 回归结果见 [`tests/SEEDANCE_CASES.md`](tests/SEEDANCE_CASES.md)，包括每个案例的白模截图和机器可读 prompt 记录。
 
+Precision MCP 在 Blender 5.2 GUI 中的真实建模、尺寸 QA、事务 Abort、`.blend` checkpoint 和白模 PNG 证据见 [`tests/PRECISION_MCP.md`](tests/PRECISION_MCP.md)。
+
 ## 两种建模入口
 
 1. 直接提示词：描述对象、风格、比例、部件、镜头和交付格式，Skill 在 Blender 中创建可继续编辑的场景。
