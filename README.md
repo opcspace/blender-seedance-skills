@@ -9,6 +9,7 @@
 - `blender-base-mesh-library`：角色、生物、道具、建筑、机械、环境、抽象形体七类 BaseMesh 设计与复用。
 - `blender-white-model-render`：白模材质、灯光、相机、预览图/视频和导出检查。
 - `seedance-white-model-video`：白模到 Seedance 视频的提示词、Jimeng 交接和可选 Ark API 流程。
+- `precision-mcp/`：参考 MCPBlender/blender-mcp 自建的高精度 Blender MCP companion；以白名单工具提供尺寸驱动网格、几何 QA、自动构图和白模渲染，不替换现有 8400 MCP。
 
 ## 安装
 
