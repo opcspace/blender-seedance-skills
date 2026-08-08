@@ -42,6 +42,25 @@ If the connected MCP tool set cannot create collections or custom properties, pr
 5. Validate naming, transforms, material neutrality, topology and collection isolation.
 6. Hand the result to `blender-modeling` for scene-specific edits or `blender-white-model-render` for export.
 
+## Category-specific minimum recipes
+
+Use these checks before calling a BaseMesh usable. They are intentionally silhouette-first and work with primitive-only MCP tools.
+
+- **Character**: head, torso, two legs, two arms and a ground/contact plane. Keep the head-to-body ratio explicit; use spheres/cylinders for joints and limbs where possible, and do not accept a featureless rectangular torso as a realistic base. Q-style bodies may exaggerate the head but must keep the feet and shoulder direction readable.
+- **Creature**: define a spine/body mass, head direction, four or two contact limbs, tail or wing attachment and a clear ground relationship. Wings must be thin, broad and angled rather than box-like; horns, claws and tails must visibly attach to a parent mass.
+- **Props and still life**: model the functional silhouette first. Rotate blades, shields, handles and cylinders to their intended use direction; check that the camera shows the primary face and at least one depth cue. Keep materials neutral and omit textures.
+- **Architecture**: establish a ground/foundation, primary enclosure, repeated modules and an entry/opening or circulation cue. Check alignment, scale consistency and an establishing camera before decorative parts.
+- **Hard surface and machines**: separate the main shell, functional subassemblies and contact points (wheels, feet, landing gear). Apply bevels after scale is set; keep panel masses simple and avoid pretending that an unverified cube is a complete vehicle shell.
+- **Environment and terrain**: include a ground context, one dominant mass and secondary variation. Frame the full height and footprint; do not let a canopy, cliff or mountain be cropped out of the preview.
+- **Abstract forms**: use three to five intentional masses with controlled overlap, negative space and a chosen focal axis. Test a second camera angle when the form is meant for later sculpting.
+
+## Quality and fallback rules
+
+- Run a silhouette pass, a proportion/contact pass and a camera/framing pass in that order. A render that technically succeeds but crops the object or merges all masses is a failed BaseMesh preview.
+- Keep parent/root naming and object-level metadata in the handoff report when collections or custom properties are unavailable in MCP.
+- Rigged bodies, real retopology, sculpt topology, UVs, image-reference import and custom properties require additional Blender tools or a manual GUI step. Do not claim `rig_ready=true` from primitive parenting alone.
+- For a category with weak results, preserve the object names and apply a targeted patch: proportions, appendage direction, contact points, camera distance or module spacing. Rebuild only when the silhouette cannot be repaired.
+
 ## Important boundary
 
 This Skill creates or selects the editable white model. It does not promise pixel-perfect recovery of hidden geometry from one AI image, and it does not create final Seedance video.

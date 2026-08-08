@@ -1,0 +1,765 @@
+[
+  {
+    "alias": "character_realistic_male",
+    "category": "角色类",
+    "purpose": "写实人体素体",
+    "root_object": "BASE_character_realistic_male_ROOT",
+    "part_count": 6,
+    "created": {
+      "created": [
+        "BASE_character_realistic_male_ROOT",
+        "BASE_character_realistic_male_head",
+        "BASE_character_realistic_male_torso",
+        "BASE_character_realistic_male_leg_l",
+        "BASE_character_realistic_male_leg_r",
+        "BASE_character_realistic_male_arm_l",
+        "BASE_character_realistic_male_arm_r",
+        "BASE_character_realistic_male_CAMERA",
+        "BASE_character_realistic_male_KEY"
+      ],
+      "errors": [],
+      "count": 9
+    },
+    "root_info": {
+      "name": "BASE_character_realistic_male_ROOT",
+      "type": "EMPTY",
+      "location": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rotation_euler": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "dimensions": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "materials": [],
+      "modifiers": [],
+      "parent": null
+    },
+    "rendered": {
+      "filepath": "tests/assets/basemesh_cases/character_realistic_male.png"
+    },
+    "image": "tests/assets/basemesh_cases/character_realistic_male.png",
+    "exists": true,
+    "metadata_status": "report-only: MCP has no custom-property tool"
+  },
+  {
+    "alias": "character_stylized_q",
+    "category": "角色类",
+    "purpose": "Q版卡通素体",
+    "root_object": "BASE_character_stylized_q_ROOT",
+    "part_count": 5,
+    "created": {
+      "created": [
+        "BASE_character_stylized_q_ROOT",
+        "BASE_character_stylized_q_oversized_head",
+        "BASE_character_stylized_q_body",
+        "BASE_character_stylized_q_leg_l",
+        "BASE_character_stylized_q_leg_r",
+        "BASE_character_stylized_q_hair_mass",
+        "BASE_character_stylized_q_CAMERA",
+        "BASE_character_stylized_q_KEY"
+      ],
+      "errors": [],
+      "count": 8
+    },
+    "root_info": {
+      "name": "BASE_character_stylized_q_ROOT",
+      "type": "EMPTY",
+      "location": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rotation_euler": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "dimensions": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "materials": [],
+      "modifiers": [],
+      "parent": null
+    },
+    "rendered": {
+      "filepath": "tests/assets/basemesh_cases/character_stylized_q.png"
+    },
+    "image": "tests/assets/basemesh_cases/character_stylized_q.png",
+    "exists": true,
+    "metadata_status": "report-only: MCP has no custom-property tool"
+  },
+  {
+    "alias": "creature_wolf",
+    "category": "生物类",
+    "purpose": "现实哺乳动物",
+    "root_object": "BASE_creature_wolf_ROOT",
+    "part_count": 8,
+    "created": {
+      "created": [
+        "BASE_creature_wolf_ROOT",
+        "BASE_creature_wolf_body",
+        "BASE_creature_wolf_head",
+        "BASE_creature_wolf_snout",
+        "BASE_creature_wolf_leg_front_l",
+        "BASE_creature_wolf_leg_front_r",
+        "BASE_creature_wolf_leg_back_l",
+        "BASE_creature_wolf_leg_back_r",
+        "BASE_creature_wolf_tail",
+        "BASE_creature_wolf_CAMERA",
+        "BASE_creature_wolf_KEY"
+      ],
+      "errors": [],
+      "count": 11
+    },
+    "root_info": {
+      "name": "BASE_creature_wolf_ROOT",
+      "type": "EMPTY",
+      "location": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rotation_euler": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "dimensions": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "materials": [],
+      "modifiers": [],
+      "parent": null
+    },
+    "rendered": {
+      "filepath": "tests/assets/basemesh_cases/creature_wolf.png"
+    },
+    "image": "tests/assets/basemesh_cases/creature_wolf.png",
+    "exists": true,
+    "metadata_status": "report-only: MCP has no custom-property tool"
+  },
+  {
+    "alias": "creature_dragon",
+    "category": "生物类",
+    "purpose": "奇幻龙基底",
+    "root_object": "BASE_creature_dragon_ROOT",
+    "part_count": 7,
+    "created": {
+      "created": [
+        "BASE_creature_dragon_ROOT",
+        "BASE_creature_dragon_body",
+        "BASE_creature_dragon_head",
+        "BASE_creature_dragon_horn_l",
+        "BASE_creature_dragon_horn_r",
+        "BASE_creature_dragon_wing_l",
+        "BASE_creature_dragon_wing_r",
+        "BASE_creature_dragon_tail",
+        "BASE_creature_dragon_CAMERA",
+        "BASE_creature_dragon_KEY"
+      ],
+      "errors": [],
+      "count": 10
+    },
+    "root_info": {
+      "name": "BASE_creature_dragon_ROOT",
+      "type": "EMPTY",
+      "location": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rotation_euler": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "dimensions": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "materials": [],
+      "modifiers": [],
+      "parent": null
+    },
+    "rendered": {
+      "filepath": "tests/assets/basemesh_cases/creature_dragon.png"
+    },
+    "image": "tests/assets/basemesh_cases/creature_dragon.png",
+    "exists": true,
+    "metadata_status": "report-only: MCP has no custom-property tool"
+  },
+  {
+    "alias": "prop_chair",
+    "category": "道具静物类",
+    "purpose": "家具椅子",
+    "root_object": "BASE_prop_chair_ROOT",
+    "part_count": 6,
+    "created": {
+      "created": [
+        "BASE_prop_chair_ROOT",
+        "BASE_prop_chair_seat",
+        "BASE_prop_chair_back",
+        "BASE_prop_chair_leg_fl",
+        "BASE_prop_chair_leg_fr",
+        "BASE_prop_chair_leg_bl",
+        "BASE_prop_chair_leg_br",
+        "BASE_prop_chair_CAMERA",
+        "BASE_prop_chair_KEY"
+      ],
+      "errors": [],
+      "count": 9
+    },
+    "root_info": {
+      "name": "BASE_prop_chair_ROOT",
+      "type": "EMPTY",
+      "location": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rotation_euler": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "dimensions": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "materials": [],
+      "modifiers": [],
+      "parent": null
+    },
+    "rendered": {
+      "filepath": "tests/assets/basemesh_cases/prop_chair.png"
+    },
+    "image": "tests/assets/basemesh_cases/prop_chair.png",
+    "exists": true,
+    "metadata_status": "report-only: MCP has no custom-property tool"
+  },
+  {
+    "alias": "prop_sword_shield",
+    "category": "道具静物类",
+    "purpose": "刀剑与盾牌",
+    "root_object": "BASE_prop_sword_shield_ROOT",
+    "part_count": 4,
+    "created": {
+      "created": [
+        "BASE_prop_sword_shield_ROOT",
+        "BASE_prop_sword_shield_blade",
+        "BASE_prop_sword_shield_guard",
+        "BASE_prop_sword_shield_grip",
+        "BASE_prop_sword_shield_shield",
+        "BASE_prop_sword_shield_CAMERA",
+        "BASE_prop_sword_shield_KEY"
+      ],
+      "errors": [],
+      "count": 7
+    },
+    "root_info": {
+      "name": "BASE_prop_sword_shield_ROOT",
+      "type": "EMPTY",
+      "location": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rotation_euler": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "dimensions": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "materials": [],
+      "modifiers": [],
+      "parent": null
+    },
+    "rendered": {
+      "filepath": "tests/assets/basemesh_cases/prop_sword_shield.png"
+    },
+    "image": "tests/assets/basemesh_cases/prop_sword_shield.png",
+    "exists": true,
+    "metadata_status": "report-only: MCP has no custom-property tool"
+  },
+  {
+    "alias": "architecture_traditional_house",
+    "category": "建筑类",
+    "purpose": "古风房屋模块",
+    "root_object": "BASE_architecture_traditional_house_ROOT",
+    "part_count": 7,
+    "created": {
+      "created": [
+        "BASE_architecture_traditional_house_ROOT",
+        "BASE_architecture_traditional_house_foundation",
+        "BASE_architecture_traditional_house_wall_back",
+        "BASE_architecture_traditional_house_wall_left",
+        "BASE_architecture_traditional_house_roof",
+        "BASE_architecture_traditional_house_column_l",
+        "BASE_architecture_traditional_house_column_r",
+        "BASE_architecture_traditional_house_step",
+        "BASE_architecture_traditional_house_CAMERA",
+        "BASE_architecture_traditional_house_KEY"
+      ],
+      "errors": [],
+      "count": 10
+    },
+    "root_info": {
+      "name": "BASE_architecture_traditional_house_ROOT",
+      "type": "EMPTY",
+      "location": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rotation_euler": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "dimensions": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "materials": [],
+      "modifiers": [],
+      "parent": null
+    },
+    "rendered": {
+      "filepath": "tests/assets/basemesh_cases/architecture_traditional_house.png"
+    },
+    "image": "tests/assets/basemesh_cases/architecture_traditional_house.png",
+    "exists": true,
+    "metadata_status": "report-only: MCP has no custom-property tool"
+  },
+  {
+    "alias": "architecture_sci_fi_module",
+    "category": "建筑类",
+    "purpose": "科幻建筑模块",
+    "root_object": "BASE_architecture_sci_fi_module_ROOT",
+    "part_count": 5,
+    "created": {
+      "created": [
+        "BASE_architecture_sci_fi_module_ROOT",
+        "BASE_architecture_sci_fi_module_core",
+        "BASE_architecture_sci_fi_module_tower",
+        "BASE_architecture_sci_fi_module_bridge",
+        "BASE_architecture_sci_fi_module_platform",
+        "BASE_architecture_sci_fi_module_antenna",
+        "BASE_architecture_sci_fi_module_CAMERA",
+        "BASE_architecture_sci_fi_module_KEY"
+      ],
+      "errors": [],
+      "count": 8
+    },
+    "root_info": {
+      "name": "BASE_architecture_sci_fi_module_ROOT",
+      "type": "EMPTY",
+      "location": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rotation_euler": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "dimensions": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "materials": [],
+      "modifiers": [],
+      "parent": null
+    },
+    "rendered": {
+      "filepath": "tests/assets/basemesh_cases/architecture_sci_fi_module.png"
+    },
+    "image": "tests/assets/basemesh_cases/architecture_sci_fi_module.png",
+    "exists": true,
+    "metadata_status": "report-only: MCP has no custom-property tool"
+  },
+  {
+    "alias": "machine_car",
+    "category": "硬表面机械类",
+    "purpose": "交通工具汽车外壳",
+    "root_object": "BASE_machine_car_ROOT",
+    "part_count": 6,
+    "created": {
+      "created": [
+        "BASE_machine_car_ROOT",
+        "BASE_machine_car_body",
+        "BASE_machine_car_cabin",
+        "BASE_machine_car_wheel_fl",
+        "BASE_machine_car_wheel_fr",
+        "BASE_machine_car_wheel_bl",
+        "BASE_machine_car_wheel_br",
+        "BASE_machine_car_CAMERA",
+        "BASE_machine_car_KEY"
+      ],
+      "errors": [],
+      "count": 9
+    },
+    "root_info": {
+      "name": "BASE_machine_car_ROOT",
+      "type": "EMPTY",
+      "location": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rotation_euler": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "dimensions": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "materials": [],
+      "modifiers": [],
+      "parent": null
+    },
+    "rendered": {
+      "filepath": "tests/assets/basemesh_cases/machine_car.png"
+    },
+    "image": "tests/assets/basemesh_cases/machine_car.png",
+    "exists": true,
+    "metadata_status": "report-only: MCP has no custom-property tool"
+  },
+  {
+    "alias": "machine_mech",
+    "category": "硬表面机械类",
+    "purpose": "机甲外壳",
+    "root_object": "BASE_machine_mech_ROOT",
+    "part_count": 6,
+    "created": {
+      "created": [
+        "BASE_machine_mech_ROOT",
+        "BASE_machine_mech_chest",
+        "BASE_machine_mech_head",
+        "BASE_machine_mech_arm_l",
+        "BASE_machine_mech_arm_r",
+        "BASE_machine_mech_leg_l",
+        "BASE_machine_mech_leg_r",
+        "BASE_machine_mech_CAMERA",
+        "BASE_machine_mech_KEY"
+      ],
+      "errors": [],
+      "count": 9
+    },
+    "root_info": {
+      "name": "BASE_machine_mech_ROOT",
+      "type": "EMPTY",
+      "location": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rotation_euler": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "dimensions": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "materials": [],
+      "modifiers": [],
+      "parent": null
+    },
+    "rendered": {
+      "filepath": "tests/assets/basemesh_cases/machine_mech.png"
+    },
+    "image": "tests/assets/basemesh_cases/machine_mech.png",
+    "exists": true,
+    "metadata_status": "report-only: MCP has no custom-property tool"
+  },
+  {
+    "alias": "environment_rock_cluster",
+    "category": "环境地形类",
+    "purpose": "山石岩块组",
+    "root_object": "BASE_environment_rock_cluster_ROOT",
+    "part_count": 4,
+    "created": {
+      "created": [
+        "BASE_environment_rock_cluster_ROOT",
+        "BASE_environment_rock_cluster_rock_01",
+        "BASE_environment_rock_cluster_rock_02",
+        "BASE_environment_rock_cluster_rock_03",
+        "BASE_environment_rock_cluster_ground",
+        "BASE_environment_rock_cluster_CAMERA",
+        "BASE_environment_rock_cluster_KEY"
+      ],
+      "errors": [],
+      "count": 7
+    },
+    "root_info": {
+      "name": "BASE_environment_rock_cluster_ROOT",
+      "type": "EMPTY",
+      "location": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rotation_euler": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "dimensions": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "materials": [],
+      "modifiers": [],
+      "parent": null
+    },
+    "rendered": {
+      "filepath": "tests/assets/basemesh_cases/environment_rock_cluster.png"
+    },
+    "image": "tests/assets/basemesh_cases/environment_rock_cluster.png",
+    "exists": true,
+    "metadata_status": "report-only: MCP has no custom-property tool"
+  },
+  {
+    "alias": "environment_tree_base",
+    "category": "环境地形类",
+    "purpose": "树干树枝植被基底",
+    "root_object": "BASE_environment_tree_base_ROOT",
+    "part_count": 5,
+    "created": {
+      "created": [
+        "BASE_environment_tree_base_ROOT",
+        "BASE_environment_tree_base_trunk",
+        "BASE_environment_tree_base_branch_l",
+        "BASE_environment_tree_base_branch_r",
+        "BASE_environment_tree_base_canopy",
+        "BASE_environment_tree_base_ground",
+        "BASE_environment_tree_base_CAMERA",
+        "BASE_environment_tree_base_KEY"
+      ],
+      "errors": [],
+      "count": 8
+    },
+    "root_info": {
+      "name": "BASE_environment_tree_base_ROOT",
+      "type": "EMPTY",
+      "location": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rotation_euler": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "dimensions": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "materials": [],
+      "modifiers": [],
+      "parent": null
+    },
+    "rendered": {
+      "filepath": "tests/assets/basemesh_cases/environment_tree_base.png"
+    },
+    "image": "tests/assets/basemesh_cases/environment_tree_base.png",
+    "exists": true,
+    "metadata_status": "report-only: MCP has no custom-property tool"
+  },
+  {
+    "alias": "abstract_primitives",
+    "category": "基础抽象形体",
+    "purpose": "球立方体圆环圆柱组合",
+    "root_object": "BASE_abstract_primitives_ROOT",
+    "part_count": 4,
+    "created": {
+      "created": [
+        "BASE_abstract_primitives_ROOT",
+        "BASE_abstract_primitives_sphere",
+        "BASE_abstract_primitives_cube",
+        "BASE_abstract_primitives_torus",
+        "BASE_abstract_primitives_cylinder",
+        "BASE_abstract_primitives_CAMERA",
+        "BASE_abstract_primitives_KEY"
+      ],
+      "errors": [],
+      "count": 7
+    },
+    "root_info": {
+      "name": "BASE_abstract_primitives_ROOT",
+      "type": "EMPTY",
+      "location": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rotation_euler": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "dimensions": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "materials": [],
+      "modifiers": [],
+      "parent": null
+    },
+    "rendered": {
+      "filepath": "tests/assets/basemesh_cases/abstract_primitives.png"
+    },
+    "image": "tests/assets/basemesh_cases/abstract_primitives.png",
+    "exists": true,
+    "metadata_status": "report-only: MCP has no custom-property tool"
+  },
+  {
+    "alias": "abstract_sculpture",
+    "category": "基础抽象形体",
+    "purpose": "异形曲面雕塑基底",
+    "root_object": "BASE_abstract_sculpture_ROOT",
+    "part_count": 4,
+    "created": {
+      "created": [
+        "BASE_abstract_sculpture_ROOT",
+        "BASE_abstract_sculpture_mass_a",
+        "BASE_abstract_sculpture_mass_b",
+        "BASE_abstract_sculpture_ring",
+        "BASE_abstract_sculpture_spike",
+        "BASE_abstract_sculpture_CAMERA",
+        "BASE_abstract_sculpture_KEY"
+      ],
+      "errors": [],
+      "count": 7
+    },
+    "root_info": {
+      "name": "BASE_abstract_sculpture_ROOT",
+      "type": "EMPTY",
+      "location": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "rotation_euler": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "dimensions": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "materials": [],
+      "modifiers": [],
+      "parent": null
+    },
+    "rendered": {
+      "filepath": "tests/assets/basemesh_cases/abstract_sculpture.png"
+    },
+    "image": "tests/assets/basemesh_cases/abstract_sculpture.png",
+    "exists": true,
+    "metadata_status": "report-only: MCP has no custom-property tool"
+  }
+]
