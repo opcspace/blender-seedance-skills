@@ -1,0 +1,419 @@
+[
+  {
+    "alias": "grey_city_cyberpunk",
+    "title": "Grey City Blockout to Cyberpunk",
+    "prompt": "Create a 30-second Dreamina Seedance 2.5 AI video scene for 'Grey City Blockout to Cyberpunk', showing a grey urban blockout becoming a rainy cyberpunk alley shot. Use the provided reference image, render, green-screen plate, white model, product photo, or storyboard as a multimodal reference. Preserve the core composition and subject intent, add cinematic camera movement, controlled timeline pacing, realistic lighting, localized refinements, no readable text, no watermark, and a polished result suitable for a professional creator workflow.",
+    "created": {
+      "created": [
+        "CASE_grey_city_cyberpunk_road",
+        "CASE_grey_city_cyberpunk_building_left",
+        "CASE_grey_city_cyberpunk_building_right",
+        "CASE_grey_city_cyberpunk_building_back",
+        "CASE_grey_city_cyberpunk_alley_block",
+        "CASE_grey_city_cyberpunk_camera",
+        "CASE_grey_city_cyberpunk_key"
+      ],
+      "errors": [],
+      "count": 7
+    },
+    "rendered": {
+      "filepath": "tests/assets/seedance_cases/grey_city_cyberpunk.png",
+      "format": "PNG",
+      "resolution": [
+        640,
+        360
+      ]
+    },
+    "scene": {
+      "name": "Scene",
+      "objects": [
+        {
+          "name": "CASE_grey_city_cyberpunk_road",
+          "type": "MESH"
+        },
+        {
+          "name": "CASE_grey_city_cyberpunk_building_left",
+          "type": "MESH"
+        },
+        {
+          "name": "CASE_grey_city_cyberpunk_building_right",
+          "type": "MESH"
+        },
+        {
+          "name": "CASE_grey_city_cyberpunk_building_back",
+          "type": "MESH"
+        },
+        {
+          "name": "CASE_grey_city_cyberpunk_alley_block",
+          "type": "MESH"
+        },
+        {
+          "name": "CASE_grey_city_cyberpunk_camera",
+          "type": "CAMERA"
+        },
+        {
+          "name": "CASE_grey_city_cyberpunk_key",
+          "type": "LIGHT"
+        }
+      ],
+      "collections": [
+        "Collection"
+      ],
+      "frame_start": 1,
+      "frame_end": 48,
+      "fps": 24
+    },
+    "image": "tests/assets/seedance_cases/grey_city_cyberpunk.png",
+    "exists": true
+  },
+  {
+    "alias": "white_castle_fantasy",
+    "title": "White Castle Model to Fantasy Shot",
+    "prompt": "Create a 30-second Dreamina Seedance 2.5 AI video scene for 'White Castle Model to Fantasy Shot', showing a white model castle blockout becoming a fantasy kingdom establishing shot. Use the provided reference image, render, green-screen plate, white model, product photo, or storyboard as a multimodal reference. Preserve the core composition and subject intent, add cinematic camera movement, controlled timeline pacing, realistic lighting, localized refinements, no readable text, no watermark, and a polished result suitable for a professional creator workflow.",
+    "created": {
+      "created": [
+        "CASE_white_castle_fantasy_terrain",
+        "CASE_white_castle_fantasy_keep",
+        "CASE_white_castle_fantasy_tower_left",
+        "CASE_white_castle_fantasy_tower_right",
+        "CASE_white_castle_fantasy_front_wall",
+        "CASE_white_castle_fantasy_gate",
+        "CASE_white_castle_fantasy_camera",
+        "CASE_white_castle_fantasy_key"
+      ],
+      "errors": [],
+      "count": 8
+    },
+    "rendered": {
+      "filepath": "tests/assets/seedance_cases/white_castle_fantasy.png",
+      "format": "PNG",
+      "resolution": [
+        640,
+        360
+      ]
+    },
+    "scene": {
+      "name": "Scene",
+      "objects": [
+        {
+          "name": "CASE_white_castle_fantasy_terrain",
+          "type": "MESH"
+        },
+        {
+          "name": "CASE_white_castle_fantasy_keep",
+          "type": "MESH"
+        },
+        {
+          "name": "CASE_white_castle_fantasy_tower_left",
+          "type": "MESH"
+        },
+        {
+          "name": "CASE_white_castle_fantasy_tower_right",
+          "type": "MESH"
+        },
+        {
+          "name": "CASE_white_castle_fantasy_front_wall",
+          "type": "MESH"
+        },
+        {
+          "name": "CASE_white_castle_fantasy_gate",
+          "type": "MESH"
+        },
+        {
+          "name": "CASE_white_castle_fantasy_camera",
+          "type": "CAMERA"
+        },
+        {
+          "name": "CASE_white_castle_fantasy_key",
+          "type": "LIGHT"
+        }
+      ],
+      "collections": [
+        "Collection"
+      ],
+      "frame_start": 1,
+      "frame_end": 48,
+      "fps": 24
+    },
+    "image": "tests/assets/seedance_cases/white_castle_fantasy.png",
+    "exists": true
+  },
+  {
+    "alias": "low_poly_car_chase",
+    "title": "Low-Poly Car Chase Previs",
+    "prompt": "Create a 30-second Dreamina Seedance 2.5 AI video scene for 'Low-Poly Car Chase Previs', showing a low-poly vehicle blockout becoming a realistic car chase frame. Use the provided reference image, render, green-screen plate, white model, product photo, or storyboard as a multimodal reference. Preserve the core composition and subject intent, add cinematic camera movement, controlled timeline pacing, realistic lighting, localized refinements, no readable text, no watermark, and a polished result suitable for a professional creator workflow.",
+    "created": {
+      "created": [
+        "CASE_low_poly_car_chase_road",
+        "CASE_low_poly_car_chase_hero_car",
+        "CASE_low_poly_car_chase_pursuer_car",
+        "CASE_low_poly_car_chase_road_marker_left",
+        "CASE_low_poly_car_chase_road_marker_right",
+        "CASE_low_poly_car_chase_camera",
+        "CASE_low_poly_car_chase_key"
+      ],
+      "errors": [],
+      "count": 7
+    },
+    "rendered": {
+      "filepath": "tests/assets/seedance_cases/low_poly_car_chase.png",
+      "format": "PNG",
+      "resolution": [
+        640,
+        360
+      ]
+    },
+    "scene": {
+      "name": "Scene",
+      "objects": [
+        {
+          "name": "CASE_low_poly_car_chase_road",
+          "type": "MESH"
+        },
+        {
+          "name": "CASE_low_poly_car_chase_hero_car",
+          "type": "MESH"
+        },
+        {
+          "name": "CASE_low_poly_car_chase_pursuer_car",
+          "type": "MESH"
+        },
+        {
+          "name": "CASE_low_poly_car_chase_road_marker_left",
+          "type": "MESH"
+        },
+        {
+          "name": "CASE_low_poly_car_chase_road_marker_right",
+          "type": "MESH"
+        },
+        {
+          "name": "CASE_low_poly_car_chase_camera",
+          "type": "CAMERA"
+        },
+        {
+          "name": "CASE_low_poly_car_chase_key",
+          "type": "LIGHT"
+        }
+      ],
+      "collections": [
+        "Collection"
+      ],
+      "frame_start": 1,
+      "frame_end": 48,
+      "fps": 24
+    },
+    "image": "tests/assets/seedance_cases/low_poly_car_chase.png",
+    "exists": true
+  },
+  {
+    "alias": "white_interior_walkthrough",
+    "title": "White Model Interior Walkthrough",
+    "prompt": "Create a 30-second Dreamina Seedance 2.5 AI video scene for 'White Model Interior Walkthrough', showing a white model interior blockout becoming a luxury apartment walkthrough. Use the provided reference image, render, green-screen plate, white model, product photo, or storyboard as a multimodal reference. Preserve the core composition and subject intent, add cinematic camera movement, controlled timeline pacing, realistic lighting, localized refinements, no readable text, no watermark, and a polished result suitable for a professional creator workflow.",
+    "created": {
+      "created": [
+        "CASE_white_interior_walkthrough_floor",
+        "CASE_white_interior_walkthrough_back_wall",
+        "CASE_white_interior_walkthrough_left_wall",
+        "CASE_white_interior_walkthrough_sofa",
+        "CASE_white_interior_walkthrough_table",
+        "CASE_white_interior_walkthrough_stair_proxy",
+        "CASE_white_interior_walkthrough_camera",
+        "CASE_white_interior_walkthrough_key"
+      ],
+      "errors": [],
+      "count": 8
+    },
+    "rendered": {
+      "filepath": "tests/assets/seedance_cases/white_interior_walkthrough.png",
+      "format": "PNG",
+      "resolution": [
+        640,
+        360
+      ]
+    },
+    "scene": {
+      "name": "Scene",
+      "objects": [
+        {
+          "name": "CASE_white_interior_walkthrough_floor",
+          "type": "MESH"
+        },
+        {
+          "name": "CASE_white_interior_walkthrough_back_wall",
+          "type": "MESH"
+        },
+        {
+          "name": "CASE_white_interior_walkthrough_left_wall",
+          "type": "MESH"
+        },
+        {
+          "name": "CASE_white_interior_walkthrough_sofa",
+          "type": "MESH"
+        },
+        {
+          "name": "CASE_white_interior_walkthrough_table",
+          "type": "MESH"
+        },
+        {
+          "name": "CASE_white_interior_walkthrough_stair_proxy",
+          "type": "MESH"
+        },
+        {
+          "name": "CASE_white_interior_walkthrough_camera",
+          "type": "CAMERA"
+        },
+        {
+          "name": "CASE_white_interior_walkthrough_key",
+          "type": "LIGHT"
+        }
+      ],
+      "collections": [
+        "Collection"
+      ],
+      "frame_start": 1,
+      "frame_end": 48,
+      "fps": 24
+    },
+    "image": "tests/assets/seedance_cases/white_interior_walkthrough.png",
+    "exists": true
+  },
+  {
+    "alias": "character_pose_hero",
+    "title": "Character Pose to Hero Shot",
+    "prompt": "Create a 30-second Dreamina Seedance 2.5 AI video scene for 'Character Pose to Hero Shot', showing a simple character pose blockout becoming a dramatic cinematic hero shot. Use the provided reference image, render, green-screen plate, white model, product photo, or storyboard as a multimodal reference. Preserve the core composition and subject intent, add cinematic camera movement, controlled timeline pacing, realistic lighting, localized refinements, no readable text, no watermark, and a polished result suitable for a professional creator workflow.",
+    "created": {
+      "created": [
+        "CASE_character_pose_hero_head",
+        "CASE_character_pose_hero_torso",
+        "CASE_character_pose_hero_arm_left",
+        "CASE_character_pose_hero_arm_right",
+        "CASE_character_pose_hero_hero_prop",
+        "CASE_character_pose_hero_hero_floor",
+        "CASE_character_pose_hero_camera",
+        "CASE_character_pose_hero_key"
+      ],
+      "errors": [],
+      "count": 8
+    },
+    "rendered": {
+      "filepath": "tests/assets/seedance_cases/character_pose_hero.png",
+      "format": "PNG",
+      "resolution": [
+        640,
+        360
+      ]
+    },
+    "scene": {
+      "name": "Scene",
+      "objects": [
+        {
+          "name": "CASE_character_pose_hero_head",
+          "type": "MESH"
+        },
+        {
+          "name": "CASE_character_pose_hero_torso",
+          "type": "MESH"
+        },
+        {
+          "name": "CASE_character_pose_hero_arm_left",
+          "type": "MESH"
+        },
+        {
+          "name": "CASE_character_pose_hero_arm_right",
+          "type": "MESH"
+        },
+        {
+          "name": "CASE_character_pose_hero_hero_prop",
+          "type": "MESH"
+        },
+        {
+          "name": "CASE_character_pose_hero_hero_floor",
+          "type": "MESH"
+        },
+        {
+          "name": "CASE_character_pose_hero_camera",
+          "type": "CAMERA"
+        },
+        {
+          "name": "CASE_character_pose_hero_key",
+          "type": "LIGHT"
+        }
+      ],
+      "collections": [
+        "Collection"
+      ],
+      "frame_start": 1,
+      "frame_end": 48,
+      "fps": 24
+    },
+    "image": "tests/assets/seedance_cases/character_pose_hero.png",
+    "exists": true
+  },
+  {
+    "alias": "blockout_board_final",
+    "title": "Blockout Board to Final Video",
+    "prompt": "Create a 30-second Dreamina Seedance 2.5 AI video scene for 'Blockout Board to Final Video', showing a creator screen with blockout boards and final AI video frames. Use the provided reference image, render, green-screen plate, white model, product photo, or storyboard as a multimodal reference. Preserve the core composition and subject intent, add cinematic camera movement, controlled timeline pacing, realistic lighting, localized refinements, no readable text, no watermark, and a polished result suitable for a professional creator workflow.",
+    "created": {
+      "created": [
+        "CASE_blockout_board_final_board_01",
+        "CASE_blockout_board_final_board_02",
+        "CASE_blockout_board_final_board_03",
+        "CASE_blockout_board_final_timeline",
+        "CASE_blockout_board_final_screen_frame",
+        "CASE_blockout_board_final_camera",
+        "CASE_blockout_board_final_key"
+      ],
+      "errors": [],
+      "count": 7
+    },
+    "rendered": {
+      "filepath": "tests/assets/seedance_cases/blockout_board_final.png",
+      "format": "PNG",
+      "resolution": [
+        640,
+        360
+      ]
+    },
+    "scene": {
+      "name": "Scene",
+      "objects": [
+        {
+          "name": "CASE_blockout_board_final_board_01",
+          "type": "MESH"
+        },
+        {
+          "name": "CASE_blockout_board_final_board_02",
+          "type": "MESH"
+        },
+        {
+          "name": "CASE_blockout_board_final_board_03",
+          "type": "MESH"
+        },
+        {
+          "name": "CASE_blockout_board_final_timeline",
+          "type": "MESH"
+        },
+        {
+          "name": "CASE_blockout_board_final_screen_frame",
+          "type": "MESH"
+        },
+        {
+          "name": "CASE_blockout_board_final_camera",
+          "type": "CAMERA"
+        },
+        {
+          "name": "CASE_blockout_board_final_key",
+          "type": "LIGHT"
+        }
+      ],
+      "collections": [
+        "Collection"
+      ],
+      "frame_start": 1,
+      "frame_end": 48,
+      "fps": 24
+    },
+    "image": "tests/assets/seedance_cases/blockout_board_final.png",
+    "exists": true
+  }
+]

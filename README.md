@@ -24,6 +24,8 @@ cp -R skills/* ~/.codex/skills/
 
 在 Blender 5.2.0 LTS + Blender MCP 1.29.0 上，已验证基础体块创建、批量建模、定向修改、Bevel、相机/灯光、Workbench 白模静帧和变换关键帧。默认受限 MCP 工具集目前没有创建/移动 Collection、写入自定义属性、保存当前 `.blend`、上传图片或点击 Jimeng 面板的工具；这些步骤会被明确报告为 GUI/外部交接，而不会被伪装成自动完成。完整矩阵见 `skills/blender-seedance-modeling/references/mcp-capability-matrix.md`。
 
+六个官方 Dreamina 白模案例的真实 Blender 回归结果见 [`tests/SEEDANCE_CASES.md`](tests/SEEDANCE_CASES.md)，包括每个案例的白模截图和机器可读 prompt 记录。
+
 ## 两种建模入口
 
 1. 直接提示词：描述对象、风格、比例、部件、镜头和交付格式，Skill 在 Blender 中创建可继续编辑的场景。
