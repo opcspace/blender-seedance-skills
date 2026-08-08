@@ -20,6 +20,8 @@ import bpy
 HOST = "127.0.0.1"
 PORT = int(os.getenv("PRECISION_BLENDER_PORT", "9877"))
 _server = None
+_transaction_prefix = None
+_transaction_preexisting = set()
 
 
 def _owned(name: str, prefix: str) -> bool:
@@ -85,14 +87,21 @@ def _look_at(camera, target):
 
 
 def execute(command):
+    global _transaction_prefix, _transaction_preexisting
     name = command.get("type")
     params = command.get("params", {})
     if name == "precision_begin":
         prefix = params.get("prefix", "PRECISION_")
-        for obj in list(bpy.data.objects):
-            if _owned(obj.name, prefix):
-                bpy.data.objects.remove(obj, do_unlink=True)
-        return {"ok": True, "prefix": prefix, "deleted_owned_objects": True}
+        _transaction_prefix = prefix
+        _transaction_preexisting = {obj.name for obj in bpy.data.objects if _owned(obj.name, prefix)}
+        deleted = 0
+        if params.get("clean_existing", False):
+            for obj in list(bpy.data.objects):
+                if _owned(obj.name, prefix):
+                    bpy.data.objects.remove(obj, do_unlink=True)
+                    deleted += 1
+            _transaction_preexisting = set()
+        return {"ok": True, "prefix": prefix, "clean_existing": bool(params.get("clean_existing", False)), "deleted_owned_objects": deleted}
     if name == "precision_create_mesh":
         mesh = bpy.data.meshes.new(params["name"] + "_Mesh")
         mesh.from_pydata(params["vertices"], [], params["faces"])
@@ -187,9 +196,19 @@ def execute(command):
         bpy.ops.wm.save_as_mainfile(filepath=filepath, copy=True)
         return {"filepath": filepath, "exists": os.path.exists(filepath)}
     if name == "precision_commit":
+        _transaction_prefix = None
+        _transaction_preexisting = set()
         return {"ok": True}
     if name == "precision_abort":
-        return {"ok": False, "message": "MVP abort has no destructive restore yet; use a saved .blend checkpoint."}
+        removed = 0
+        if _transaction_prefix:
+            for obj in list(bpy.data.objects):
+                if _owned(obj.name, _transaction_prefix) and obj.name not in _transaction_preexisting:
+                    bpy.data.objects.remove(obj, do_unlink=True)
+                    removed += 1
+        _transaction_prefix = None
+        _transaction_preexisting = set()
+        return {"ok": True, "removed_new_objects": removed, "restored_preexisting_objects": False}
     raise ValueError(f"unsupported precision command: {name}")
 
 

@@ -64,9 +64,9 @@ def _safe_path(filepath: str) -> str:
 
 
 @mcp.tool()
-def precision_begin(prefix: str = "PRECISION_") -> str:
-    """Start a modeling transaction and isolate/delete prior objects with prefix."""
-    return _call("precision_begin", {"prefix": prefix})
+def precision_begin(prefix: str = "PRECISION_", clean_existing: bool = False) -> str:
+    """Start a transaction; existing objects are preserved unless clean_existing is explicitly true."""
+    return _call("precision_begin", {"prefix": prefix, "clean_existing": clean_existing})
 
 
 @mcp.tool()

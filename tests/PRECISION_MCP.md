@@ -17,4 +17,12 @@ The next runtime test must load the addon in the existing GUI Blender session, e
 
 ## Known MVP boundary
 
-`precision_abort` deliberately does not claim automatic scene restoration. The higher-level Skill must create a `.blend` checkpoint before `precision_begin`; restoration remains a separate, explicitly verified operation.
+`precision_abort` removes only objects created after the current transaction begins. It does not restore an external `.blend` file; the higher-level Skill should still create a checkpoint before destructive operations.
+
+## GUI integration attempt
+
+- The existing 8400 listener was checked, but it was no longer reachable when the isolated test was started.
+- A separate GUI Blender launch was attempted with `precision_gui_boot.py`.
+- Blender exited before Python startup with a Metal backend crash in `gpu::MTLBackend::metal_is_supported`.
+- `--gpu-backend opengl` is unavailable in this Blender build; the executable reports only `[metal]`.
+- Result: addon runtime and `9877` socket behavior remain unverified on this machine.
