@@ -21,11 +21,7 @@ Read `references/base-mesh-catalog.md` for the full catalog and search terms.
 
 ## BaseMesh contract
 
-For the high-precision plan, read `references/high-precision-architecture.md`. The current restricted MCP path is reliable for L0 blockout and partial L1 structured white models; do not label a primitive-only result as L2 high-precision BaseMesh.
-
-When the requested asset is dimension-driven (mechanical, architectural, panel, opening or hard-surface profile), route the precision pass through CAD Sketcher if its adapter and solver report are available. If they are not available, produce an L0/L1 blockout and state that constraint-driven precision is pending.
-
-When `precision-mcp` is available, use its parameterized primitive and geometry-QA tools for the dimension pass. The commercial deliverable gate is an explicit tolerance report, not a visually plausible screenshot. Human/creature likeness from a single reference remains an approximation unless additional scans, measurements or retopology are supplied.
+Any calibrated, dimension-driven, commercial, high-precision, L1, or L2 asset request delegates to `$blender-precision-modeling`. Do not assign L1/L2 here, silently substitute a non-CAD backend, or treat a visual BaseMesh as measured evidence. Keep the ordinary selection workflow below for nonprecision library work. Human/creature likeness from a single uncalibrated reference is L0 only.
 
 Every generated library asset should have:
 

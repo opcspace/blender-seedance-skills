@@ -9,11 +9,12 @@
 - `blender-base-mesh-library`：角色、生物、道具、建筑、机械、环境、抽象形体七类 BaseMesh 设计与复用。
 - `blender-white-model-render`：白模材质、灯光、相机、预览图/视频和导出检查。
 - `seedance-white-model-video`：白模到 Seedance 视频的提示词、Jimeng 交接和可选 Ark API 流程。
-- `precision-mcp/`：参考 MCPBlender/blender-mcp 自建的高精度 Blender MCP companion；以白名单工具提供尺寸驱动网格、几何 QA、自动构图和白模渲染，不替换现有 8400 MCP。
+- `blender-precision-modeling`：Precision Core V2 路由；把校准参考、绝对容差、Typed 操作、证据包和 L0/L1/L2 交付绑定在一起。
+- `precision-mcp/`：独立的本地 FastMCP companion；通过 `127.0.0.1:9877` 的长度前缀 framed transport 调用 Blender 白名单工具，不替换现有 8400 MCP。
 
 ## 安装
 
-将 `skills/` 下的五个目录复制到 Codex Skills 目录，例如：
+将 `skills/` 下的六个目录复制到 Codex Skills 目录，例如：
 
 ```bash
 cp -R skills/* ~/.codex/skills/
@@ -21,13 +22,31 @@ cp -R skills/* ~/.codex/skills/
 
 使用前需要在本机安装 Blender，并运行 Blender MCP add-on。Jimeng 上传面板和火山引擎 API 是可选的外部依赖，本仓库不包含第三方插件、账号信息或 API 密钥。详细环境说明见 `skills/blender-seedance-modeling/references/local-setup.md`。
 
+高精度任务请显式调用 `$blender-precision-modeling`，安装并启用
+`precision-mcp/blender_addon/precision_addon.py`，再以仓库内目录启动服务：
+
+```bash
+export PRECISION_WORKDIR="$PWD/tests/assets/precision_v2"
+PYTHONPATH="$PWD/precision-mcp" python -m precision_mcp.server
+```
+
+服务通过 stdio 暴露 FastMCP 工具，并由 companion 连接 Blender add-on 的 framed
+`127.0.0.1:9877` 端口。`PRECISION_WORKDIR` 是证据和 `.blend` 文件的安全边界，不应指向不受控目录。
+
 ## 已验证能力与边界
 
 在 Blender 5.2.0 LTS + Blender MCP 1.29.0 上，已验证基础体块创建、批量建模、定向修改、Bevel、相机/灯光、Workbench 白模静帧和变换关键帧。默认受限 MCP 工具集目前没有创建/移动 Collection、写入自定义属性、保存当前 `.blend`、上传图片或点击 Jimeng 面板的工具；这些步骤会被明确报告为 GUI/外部交接，而不会被伪装成自动完成。完整矩阵见 `skills/blender-seedance-modeling/references/mcp-capability-matrix.md`。
 
 六个官方 Dreamina 白模案例的真实 Blender 回归结果见 [`tests/SEEDANCE_CASES.md`](tests/SEEDANCE_CASES.md)，包括每个案例的白模截图和机器可读 prompt 记录。
 
-Precision MCP 在 Blender 5.2 GUI 中的真实建模、尺寸 QA、事务 Abort、`.blend` checkpoint 和白模 PNG 证据见 [`tests/PRECISION_MCP.md`](tests/PRECISION_MCP.md)。
+Precision Core V2 的可移植合同、规划、分级和安全测试结果，以及当前 Blender 5.2 GUI
+验收阻塞状态见 [`tests/PRECISION_MCP.md`](tests/PRECISION_MCP.md)。GUI 未执行时不会把
+可移植测试写成真实 Blender 运行证明。
+
+现有五个 Skill 仍是兼容入口：`blender-seedance-modeling` 负责总路由，
+`blender-modeling` 和 `blender-base-mesh-library` 处理非精度建模，
+`blender-white-model-render` 与 `seedance-white-model-video` 只消费已提交的精度产物。
+凡涉及校准尺寸、绝对容差或商业精度声明，都会转交 `blender-precision-modeling`。
 
 ## 两种建模入口
 

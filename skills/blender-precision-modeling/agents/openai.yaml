@@ -1,0 +1,4 @@
+interface:
+  display_name: "Blender Precision Modeling"
+  short_description: "Build and verify dimension-driven Blender white models"
+  default_prompt: "Use $blender-precision-modeling to turn this calibrated brief into a measured Blender model and evidence bundle."

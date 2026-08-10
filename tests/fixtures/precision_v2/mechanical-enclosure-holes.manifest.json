@@ -1,0 +1,11 @@
+{
+  "spec_version": "2.0",
+  "job_id": "fixture-mechanical-enclosure-holes",
+  "assets": [
+    {"asset_id": "enclosure", "role": "fit_critical", "source": "procedural", "target_dimensions": [600.0, 400.0, 250.0], "location": [0.0, 0.0, 125.0], "rotation_deg": [0.0, 0.0, 0.0], "anchors": ["base-center", "hole-01-center", "hole-02-center", "hole-03-center", "hole-04-center"], "provenance": "Calibrated 600 x 400 x 250 mm enclosure with four declared hole centers."},
+    {"asset_id": "hole-01", "role": "visual_shell", "source": "procedural", "target_dimensions": [8.0, 8.0, 250.0], "location": [-250.0, -150.0, 125.0], "rotation_deg": [0.0, 0.0, 0.0], "anchors": ["center", "base"], "provenance": "Calibrated 8 mm negative-space hole guide 01."},
+    {"asset_id": "hole-02", "role": "visual_shell", "source": "procedural", "target_dimensions": [8.0, 8.0, 250.0], "location": [250.0, -150.0, 125.0], "rotation_deg": [0.0, 0.0, 0.0], "anchors": ["center", "base"], "provenance": "Calibrated 8 mm negative-space hole guide 02."},
+    {"asset_id": "hole-03", "role": "visual_shell", "source": "procedural", "target_dimensions": [8.0, 8.0, 250.0], "location": [-250.0, 150.0, 125.0], "rotation_deg": [0.0, 0.0, 0.0], "anchors": ["center", "base"], "provenance": "Calibrated 8 mm negative-space hole guide 03."},
+    {"asset_id": "hole-04", "role": "visual_shell", "source": "procedural", "target_dimensions": [8.0, 8.0, 250.0], "location": [250.0, 150.0, 125.0], "rotation_deg": [0.0, 0.0, 0.0], "anchors": ["center", "base"], "provenance": "Calibrated 8 mm negative-space hole guide 04."}
+  ]
+}

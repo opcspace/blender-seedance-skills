@@ -1,0 +1,4 @@
+interface:
+  display_name: "Blender BaseMesh Library"
+  short_description: "Create and organize reusable Blender BaseMeshes"
+  default_prompt: "Use $blender-base-mesh-library to select or build this reusable white-model asset."

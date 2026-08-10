@@ -7,6 +7,8 @@ description: Turn an editable Blender scene or BaseMesh into a clean white-model
 
 This Skill owns neutral white-model presentation and preview export. It does not build the model's detailed geometry and does not claim that Jimeng has completed final Seedance generation.
 
+For any precision claim, require the committed model and final Precision Core V2 report/evidence from `$blender-precision-modeling`. Rendering never validates measurements, resolves assumptions, commits a model, or upgrades L0/L1/L2.
+
 ## Render modes
 
 - **Still**: one clean white-model camera frame for reference upload.

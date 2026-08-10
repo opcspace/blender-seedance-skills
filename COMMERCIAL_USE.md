@@ -1,42 +1,34 @@
-# Commercial use and high-precision delivery policy
+# Commercial use and Precision Core V2 delivery policy
 
-## What is commercially usable
+The OPCspace Skills and `precision-mcp` source are released under the repository MIT License. Commercial users may run, modify, integrate, and redistribute this code while preserving the copyright notice and license text. That license does not grant rights to reference images, scans, trademarks, likenesses, downloaded models, Blender, CAD Sketcher, Jimeng/Dreamina/Seedance, Volcengine services, or other third-party assets and runtimes.
 
-The OPCspace Skill and `precision-mcp` source code are released under the repository MIT License.
-Commercial users may run, modify, integrate and redistribute this code while preserving the copyright
-notice and license text.
+## Precision claims
 
-The precision workflow is intended for dimension-driven white models and editable BaseMeshes. A
-commercial delivery should include the model specification, `.blend` checkpoint, measurement report,
-preview render and a list of unresolved assumptions.
+Only the validated V2 `qa_report.json` may assign a grade:
 
-## What is not automatically licensed
+- **L0 — unverified/blockout:** the reference is uncalibrated, required evidence is missing, any L1 gate is absent or failed, or the result is visual-only.
+- **L1 — measured structured white model:** the global envelope gate, every primary-dimension gate, every contact gate, and every anchor gate are present and pass their declared absolute tolerances.
+- **L2 — evidence-complete precision model:** all L1 gates and all required assertions pass; geometry, checkpoint, and provenance gates pass; there are no unresolved assumptions; and the finalized evidence is complete.
 
-- Blender itself and its bundled components.
-- CAD Sketcher, if installed; it is a separate GPL-3.0 dependency and is not vendored here.
-- Jimeng/Dreamina/Seedance and Volcengine services, accounts, APIs and generated results.
-- The supplied Jimeng uploader ZIP, whose redistribution rights must be confirmed with its provider.
-- Reference images, AI-generated references, scans, trademarks, likenesses and downloaded models.
+Appearance, primitive count, an image-only reconstruction, a Tripo visual shell, multiple uncalibrated views, or a portable unit-test result cannot raise the grade. A blocked or unexecuted Blender GUI acceptance cannot support L2. Do not describe such work as “CAD-level,” “watertight,” or “production topology.” CAD claims additionally require an actual CAD Sketcher runtime/solver report; the adapter never assumes availability.
 
-The repository license does not grant rights to any of those third-party assets or services.
+## Minimum handoff evidence
 
-## Precision claim policy
+An L2 commercial handoff must include:
 
-Use the following wording in a commercial handoff:
+1. The canonical `scene_spec.json`, `asset_manifest.json`, and `operation_plan.json` with matching `job_id`.
+2. The final validated `qa_report.json`, including every assertion, downgrade reason, assumption, final grade, and artifact record.
+3. A committed editable `.blend` whose SHA-256 matches the artifact entry in `qa_report.json`.
+4. The `before.blend` and final checkpoint, plus orthographic and perspective previews with matching recorded checksums where listed.
+5. `assumptions.md`, provenance, calibration source, absolute tolerances, and a third-party asset/license inventory.
 
-- **L0**: blockout; visual composition only.
-- **L1**: measured structured white model; dimensions and contact points passed the declared tolerance.
-- **L2**: high-precision editable BaseMesh; typed precision MCP runtime, geometry QA, checkpoint and
-  reference/constraint report all passed.
+If a required assertion fails, the workflow may preserve `failed.blend` for diagnosis, but it must not present that file as a committed L2 result. If GUI evidence is blocked, report the blocker alongside portable results rather than substituting one for the other.
 
-Do not call an image-only reconstruction, a primitive-only smoke test or an unverified background
-render “CAD-level”, “production topology” or “watertight”.
+## Third-party boundaries
 
-## Minimum evidence bundle
+- CAD Sketcher is an external GPL-3.0-or-later dependency and is not vendored here.
+- Blender and bundled components retain their own licenses.
+- Jimeng/Dreamina/Seedance, Volcengine APIs, accounts, uploads, and generated outputs retain their provider terms.
+- Reference and imported GLB/FBX assets require independent provenance and redistribution review.
 
-1. `model_spec.json` with units, dimensions, tolerance and category.
-2. `.blend` checkpoint before the first destructive change and final editable file.
-3. Geometry report containing bounds, dimensions, non-manifold count and ground contact.
-4. White-model preview with an uncropped silhouette.
-5. Reference-confidence and unresolved-assumptions notes.
-6. Third-party asset/license inventory when external references or plugins were used.
+The repository license does not relicense or certify any of those dependencies or assets.

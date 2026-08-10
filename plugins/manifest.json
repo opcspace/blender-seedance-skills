@@ -1,28 +1,52 @@
 {
   "blender": {
     "tested_version": "5.2.0 LTS",
-    "required": true
+    "required_for_gui_acceptance": true,
+    "current_gui_acceptance": "blocked when Blender executable/runtime is unavailable"
   },
-  "addons": [
+  "integrations": [
     {
       "id": "blender-mcp-server",
       "server_version_tested": "1.29.0",
       "addon_metadata_version": "0.5.1",
       "endpoint": "http://127.0.0.1:8400/mcp",
-      "status": "tested locally; install from upstream distribution"
+      "status": "historical local checks passed; install from upstream distribution"
+    },
+    {
+      "id": "precision-core-v2",
+      "source": "precision-mcp/blender_addon/precision_addon.py",
+      "transport": "framed JSON over 127.0.0.1:9877",
+      "mcp_interface": "FastMCP stdio",
+      "status": "source and portable verification available; real GUI result must be reported separately"
+    },
+    {
+      "id": "cad-sketcher",
+      "version_observed": "0.3.0",
+      "required": false,
+      "license": "GPL-3.0-or-later",
+      "availability": "runtime-detected by precision_cad_status; never assumed installed"
     },
     {
       "id": "jimeng_blender_uploader",
       "version": "1.0.0",
       "blender_minimum": "3.6.0",
       "panel": "View3D > Sidebar > Jimeng",
-      "tested_operations": ["addon_enable", "jimeng.load_config"],
-      "status": "tested locally; package not vendored"
+      "tested_operations": [
+        "addon_enable",
+        "jimeng.load_config"
+      ],
+      "status": "historical local check; package not vendored and upload remains manual"
     }
   ],
+  "precision_adapters": {
+    "blender": "local runtime required",
+    "cad_sketcher": "runtime-detected",
+    "online_integrations": "deferred in Precision Core V2 phase one"
+  },
   "security": {
     "mcp_token": "local-only",
     "api_keys": "local-only",
-    "third_party_binaries": "not redistributed"
+    "third_party_binaries": "not redistributed",
+    "precision_workdir": "required write boundary"
   }
 }

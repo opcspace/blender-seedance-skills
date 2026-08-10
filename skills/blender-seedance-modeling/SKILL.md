@@ -12,7 +12,7 @@ This is the top-level workflow Skill. It keeps the production chain coherent whi
 | User intent | Skill to use | Output |
 |---|---|---|
 | “按提示词建模”, “根据参考图建模”, “修改 Blender 模型” | `blender-modeling` | Editable `.blend` scene |
-| “高精度白模”, “按尺寸建模”, “CAD 级比例”, “可商用资产” | `blender-modeling` + `precision-mcp/` | Checkpointed `.blend` + tolerance/geometry QA report |
+| “高精度白模”, “按尺寸建模”, “CAD 级比例”, “可商用资产”, “L1/L2” | `$blender-precision-modeling` | Committed `.blend` + Precision Core V2 report/evidence |
 | “做一个人体/动物/道具/建筑/机械白模”, “找 BaseMesh”, “整理白模资源库” | `blender-base-mesh-library` | Categorized reusable BaseMesh |
 | “渲染白模”, “生成白模 MP4”, “用 Jimeng 上传” | `blender-white-model-render` | Still, MP4, Jimeng handoff |
 | “白模转 Seedance 2.5”, “套用官方案例”, “火山引擎生成视频” | `seedance-white-model-video` | Prompt, Jimeng link or Ark task result |
@@ -22,8 +22,8 @@ This is the top-level workflow Skill. It keeps the production chain coherent whi
 
 1. Run the canonical environment check from the original Skill resources.
 2. Use `blender-base-mesh-library` if a reusable asset family is needed.
-3. Use `blender-modeling` to build or revise the editable scene through Blender MCP.
-4. Use `blender-white-model-render` to prepare the neutral reference and MP4.
+3. Use `$blender-precision-modeling` for every precision stage; otherwise use `blender-modeling` for ordinary editable scene work.
+4. Send only a committed, QA-approved precision result to `blender-white-model-render` and then Seedance. A failed or uncommitted precision job stops the chain.
 5. Use `seedance-white-model-video` to select a case, write the prompt and deliver through Jimeng or Volcengine.
 6. Report every artifact and clearly distinguish completed local work from an external generation still awaiting user/browser/API completion.
 
@@ -33,6 +33,7 @@ This is the top-level workflow Skill. It keeps the production chain coherent whi
 - Keep `CODEX_Model`, `CODEX_Reference`, `CODEX_Stage` and `CODEX_Exports` collections stable.
 - Preserve camera composition, object identity, spatial layout and timeline when handing off to Seedance.
 - Do not enable unrestricted Blender MCP code execution unless explicitly requested.
+- Precision Core V2 never permits raw code execution, even when other nonprecision workflows are authorized.
 - Never guess a Volcengine model ID or expose a local file publicly without approval.
 
 ## Tested capability boundary

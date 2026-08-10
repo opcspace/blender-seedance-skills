@@ -1,0 +1,16 @@
+{
+  "spec_version": "2.0",
+  "job_id": "fixture-furniture-table-anchors",
+  "category": "furniture",
+  "requested_grade": "L1",
+  "units": "mm",
+  "coordinate_system": {"up": "Z", "handedness": "right"},
+  "reference_calibrated": true,
+  "measurements": [
+    {"id": "table-global-width", "kind": "global_envelope", "asset_id": "table", "axis": "X", "target": 1200.0, "tolerance_abs": 1.0, "required": true, "scope": "global"},
+    {"id": "table-primary-depth", "kind": "dimension", "asset_id": "table", "axis": "Y", "target": 600.0, "tolerance_abs": 1.0, "required": true, "scope": "primary"},
+    {"id": "table-height", "kind": "dimension", "asset_id": "table", "axis": "Z", "target": 750.0, "tolerance_abs": 1.0, "required": true, "scope": "primary"},
+    {"id": "table-floor-contact", "kind": "contact", "asset_id": "table", "target": 0.0, "tolerance_abs": 1.0, "required": true, "scope": "contact"},
+    {"id": "front-leg-anchor-span", "kind": "distance", "asset_id": "table", "target": 1000.0, "tolerance_abs": 1.0, "required": true, "scope": "anchor"}
+  ]
+}

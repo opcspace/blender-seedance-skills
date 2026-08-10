@@ -1,29 +1,32 @@
-# Installed Blender plugins
+# Blender plugin and runtime status
 
-The local test machine has these add-ons installed and validated:
+This directory records integration contracts; it does not vendor third-party add-ons or prove that a dependency is active in the current Blender process.
 
-| Add-on | Version | Blender | Status |
-| --- | --- | --- | --- |
-| Blender MCP Server | server 1.29.0; add-on metadata 0.5.1 | 4.0+ | MCP initialize, tools/list and modeling calls passed |
-| 即梦 Seedance 2.5 预览渲染上传器 | 1.0.0 | 3.6+ | Add-on load and `jimeng.load_config` passed; GUI upload remains manual |
-| CAD Sketcher | 0.3.0 + slvs solver | Blender 5.2.0 LTS | External GPL-3.0-or-later dependency; installed and constraint rectangle solver test passed |
+| Integration | Version / endpoint | Status |
+| --- | --- | --- |
+| Blender MCP Server | server 1.29.0; add-on metadata 0.5.1; `127.0.0.1:8400` | Historical local initialize/modeling checks; install separately from upstream |
+| Precision Core V2 add-on | repository source; framed `127.0.0.1:9877` | Source and portable tests present; current real Blender 5.2 GUI acceptance is BLOCKED when runtime is unavailable |
+| CAD Sketcher | external 0.3.0 + solver | Optional GPL dependency; availability is runtime-detected, never assumed from this manifest |
+| Jimeng uploader | 1.0.0 | Historical add-on load check; package not vendored and GUI upload remains manual |
 
-## Why the add-on binaries are not vendored
+Tripo and Seedance are not installed Precision Core V2 integrations. Phase-one Tripo requests remain `external_pending`; Seedance is only a downstream consumer of committed previews.
 
-This repository records the tested versions and installation contract, but does not redistribute the installed add-on directories or the bundled FFmpeg runtime. The installed uploader package does not include a clear standalone open-source license, and third-party runtime components retain their own licenses. This avoids accidentally relicensing or redistributing software without permission.
+## Precision Core V2
 
-## Installation
+Install `precision-mcp/blender_addon/precision_addon.py` through Blender’s add-on UI and enable it. Then start the FastMCP stdio server from the repository root:
 
-### Blender MCP Server
+```bash
+python -m pip install "mcp>=1.3,<2" "httpx>=0.24" "jsonschema>=4.23,<5"
+export PYTHONPATH="$PWD/precision-mcp"
+export PRECISION_WORKDIR="$PWD/tests/assets/precision_v2"
+export PRECISION_BLENDER_PORT=9877
+python -m precision_mcp.server
+```
 
-Install the Blender MCP add-on from its upstream distribution, enable it in Blender, and configure Codex with a local stdio bridge that points to the add-on's HTTP endpoint. The default local endpoint is `http://127.0.0.1:8400/mcp`. Keep the MCP token local; never commit it.
+The MCP client talks stdio to FastMCP. FastMCP uses a framed, request-correlated local bridge to the add-on; legacy direct-socket scripts are diagnostics, not V2 proof. `PRECISION_WORKDIR` constrains evidence, checkpoints, previews, and final model writes.
 
-### Jimeng uploader
+Call `precision_cad_status` in the current Blender session before choosing the CAD adapter. A missing extension or solver is `backend_unavailable`; the planner must not silently route it to Blender procedural geometry.
 
-Install the separately obtained `jimeng_blender_uploader` ZIP through `Edit > Preferences > Add-ons > Install...`, enable `即梦 Seedance 2.5 预览渲染上传器`, then open `View3D > Sidebar > Jimeng`. The uploader creates a short-lived local bridge link; it does not automatically click the final Seedance generation button.
+## Why binaries are not vendored
 
-The original package name used in the local test was `jimeng_blender_uploader-mac-cn-1.0.0.zip`. Obtain it from an authorized source and verify its license before redistribution.
-
-### CAD Sketcher precision layer
-
-CAD Sketcher is an external GPL-3.0-or-later project by [hlorus/CAD_Sketcher](https://github.com/hlorus/CAD_Sketcher). The current upstream manifest declares version 0.3.0 and Blender 5.0.0 as the minimum. It supports constraint-based 2D geometry and editable non-destructive sketches. Install it separately from the official project or Blender extension flow; do not copy it into this MIT-licensed repository. The high-precision Skill must wait for the `precision_cad_status` and solver/constraint report before claiming CAD-level accuracy.
+CAD Sketcher is GPL-3.0-or-later, the uploader has no clear standalone open-source redistribution grant, and Blender/runtime components retain their own licenses. Install each integration from an authorized source and verify its license. The repository records configuration and evidence expectations without relicensing binaries.

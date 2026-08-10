@@ -5,16 +5,54 @@ on:
   pull_request:
 
 jobs:
-  python-contracts:
+  portable-precision-v2:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Run precision specification tests
-        run: python -m unittest discover -s tests -p 'test_precision_spec.py' -v
-      - name: Compile MCP and Blender addon sources
-        run: python -m py_compile precision-mcp/precision_mcp/*.py precision-mcp/blender_addon/precision_addon.py
-      - name: Parse model schema
-        run: python -c "import json; json.load(open('precision-mcp/schemas/model_spec.schema.json')); print('model_spec.schema.json: OK')"
+      - name: Install portable dependencies
+        run: python -m pip install "mcp>=1.3,<2" "httpx>=0.24" "jsonschema>=4.23,<5" "PyYAML>=6,<7"
+      - name: Run all portable Precision tests
+        run: python -m unittest discover -s tests -p 'test_precision_*.py' -v
+      - name: Compile core, adapters, add-on, and portable GUI runner
+        run: python -m py_compile precision-mcp/precision_mcp/*.py precision-mcp/precision_mcp/adapters/*.py precision-mcp/blender_addon/precision_addon.py tests/precision_v2_gui_test.py
+      - name: Parse schemas and portable fixtures
+        run: >-
+          python -c "import glob,json; paths=glob.glob('precision-mcp/schemas/*.json')+glob.glob('tests/fixtures/precision_v2/*.json'); [json.load(open(path, encoding='utf-8')) for path in paths]; print(f'json documents: {len(paths)} OK')"
+      - name: Validate all six Skills
+        shell: bash
+        run: |
+          python - <<'PY'
+          import pathlib
+          import re
+          import yaml
+
+          expected = {
+              "blender-base-mesh-library",
+              "blender-modeling",
+              "blender-precision-modeling",
+              "blender-seedance-modeling",
+              "blender-white-model-render",
+              "seedance-white-model-video",
+          }
+          roots = {path.parent.name: path.parent for path in pathlib.Path("skills").glob("*/SKILL.md")}
+          if set(roots) != expected:
+              raise SystemExit(f"unexpected Skill set: {sorted(roots)}")
+          for name, root in sorted(roots.items()):
+              text = (root / "SKILL.md").read_text(encoding="utf-8")
+              match = re.match(r"^---\n(.*?)\n---\n", text, re.DOTALL)
+              if match is None:
+                  raise SystemExit(f"{name}: missing YAML frontmatter")
+              metadata = yaml.safe_load(match.group(1))
+              if metadata.get("name") != name or not metadata.get("description"):
+                  raise SystemExit(f"{name}: invalid metadata")
+              agent = yaml.safe_load((root / "agents" / "openai.yaml").read_text(encoding="utf-8"))
+              if not agent.get("interface", {}).get("default_prompt"):
+                  raise SystemExit(f"{name}: invalid agent metadata")
+          print("skills: 6 OK")
+          PY
+
+# Graphical Blender is intentionally not started in Ubuntu CI. The real Blender
+# 5.2 MCP-to-add-on acceptance remains a separately recorded GUI result.

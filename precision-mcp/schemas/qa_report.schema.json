@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "qa_report.schema.json",
+  "title": "Precision QA Report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "spec_version",
+    "job_id",
+    "assertions",
+    "geometry",
+    "provenance",
+    "checkpoint",
+    "reasons",
+    "assumptions",
+    "artifacts",
+    "final_grade"
+  ],
+  "properties": {
+    "spec_version": {"const": "2.0"},
+    "job_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+    },
+    "assertions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "target",
+          "actual",
+          "absolute_error",
+          "relative_error",
+          "tolerance_abs",
+          "passed",
+          "required",
+          "scope"
+        ],
+        "properties": {
+          "id": {"type": "string", "minLength": 1},
+          "target": {"type": "number"},
+          "actual": {"type": "number"},
+          "absolute_error": {"type": "number", "minimum": 0},
+          "relative_error": {"type": ["number", "null"], "minimum": 0},
+          "tolerance_abs": {"type": "number", "minimum": 0},
+          "passed": {"type": "boolean"},
+          "required": {"type": "boolean"},
+          "scope": {"type": "string"}
+        }
+      }
+    },
+    "geometry": {"type": "boolean"},
+    "provenance": {"type": "boolean"},
+    "checkpoint": {"type": "boolean"},
+    "reasons": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "assumptions": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "sha256"],
+        "properties": {
+          "path": {"type": "string", "minLength": 1},
+          "sha256": {"type": "string", "pattern": "^[a-fA-F0-9]{64}$"}
+        }
+      }
+    },
+    "final_grade": {"enum": ["L0", "L1", "L2"]}
+  }
+}

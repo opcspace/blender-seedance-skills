@@ -1,0 +1,178 @@
+import ast
+import unittest
+from pathlib import Path
+
+
+ADDON = (
+    Path(__file__).parents[1]
+    / "precision-mcp"
+    / "blender_addon"
+    / "precision_addon.py"
+)
+
+
+class PrecisionAddonSourceTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.source = ADDON.read_text(encoding="utf-8")
+        cls.tree = ast.parse(cls.source)
+
+    def test_addon_has_no_arbitrary_execution_command(self):
+        self.assertNotIn("execute_blender_code", self.source)
+        self.assertNotIn("exec(", self.source)
+
+    def test_addon_parses_and_defines_v2_job_commands(self):
+        self.assertIsNotNone(self.tree)
+        for command in (
+            "precision_begin_job",
+            "precision_abort_job",
+            "precision_commit_job",
+        ):
+            self.assertIn(command, self.source)
+
+    def test_network_requests_are_framed_and_correlated(self):
+        for marker in ("struct.unpack", '"!I"', "_recv_exact", "request_id"):
+            self.assertIn(marker, self.source)
+        self.assertIn("MAX_FRAME_BYTES", self.source)
+
+    def test_blender_execution_is_queued_on_application_timer(self):
+        self.assertIn("bpy.app.timers.register", self.source)
+        self.assertIn("_execute_queued", self.source)
+        handle = next(
+            node
+            for node in self.tree.body
+            if isinstance(node, ast.FunctionDef) and node.name == "_handle"
+        )
+        called_names = {
+            node.func.id
+            for node in ast.walk(handle)
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+        }
+        self.assertNotIn("execute", called_names)
+
+    def test_addon_defines_v2_creation_and_import_commands(self):
+        for command in (
+            "precision_create_part",
+            "precision_import_asset",
+            "precision_normalize_asset",
+            "precision_profile_extrude",
+        ):
+            self.assertIn(command, self.source)
+
+    def test_import_and_normalization_are_explicit_and_job_scoped(self):
+        for marker in (
+            "UNIT_TO_METERS",
+            "source_units",
+            "target_units",
+            "source_up_axis",
+            "scaling_mode",
+            "provenance",
+            "checksum",
+            "bpy.ops.import_scene.gltf",
+            "bpy.ops.wm.fbx_import",
+            "bpy.ops.import_scene.fbx",
+            "_safe_work_path",
+            "_track_created",
+        ):
+            self.assertIn(marker, self.source)
+
+    def test_profile_extrusion_rejects_self_intersections(self):
+        self.assertIn("_validate_simple_polygon", self.source)
+        self.assertIn("self-intersecting", self.source)
+
+    def test_addon_defines_v2_assembly_patch_and_qa_commands(self):
+        for command in (
+            "precision_set_transform",
+            "precision_align_anchors",
+            "precision_patch_feature",
+            "precision_inspect_job",
+        ):
+            self.assertIn(command, self.source)
+
+    def test_feature_patches_are_closed_and_targeted(self):
+        self.assertIn("PATCHES", self.source)
+        for patch in (
+            '"dimensions"',
+            '"location"',
+            '"rotation_deg"',
+            '"hole_diameter"',
+            '"array_spacing"',
+        ):
+            self.assertIn(patch, self.source)
+        self.assertIn("precision_feature_id", self.source)
+        self.assertIn("missing_feature", self.source)
+
+    def test_inspection_uses_bvh_for_confirmed_collisions(self):
+        for marker in (
+            "_world_space_bvh",
+            "BVHTree.FromPolygons",
+            "evaluated_get",
+            "matrix_world @ vertex.co",
+            "to_mesh_clear",
+            "collision_pairs",
+            "contact_distances",
+            "degenerate_polygons",
+            "invalid_normals",
+            "applied_scale",
+        ):
+            self.assertIn(marker, self.source)
+        self.assertNotIn("BVHTree.FromObject", self.source)
+
+    def test_explicit_xyz_scaling_happens_after_axis_rotation_is_baked(self):
+        branch = self.source[
+            self.source.index('if name == "precision_normalize_asset"') :
+            self.source.index('if name == "precision_set_transform"')
+        ]
+        self.assertIn("_bake_parent_transform", branch)
+        self.assertLess(branch.index("_bake_parent_transform"), branch.index("ratios ="))
+
+    def test_transform_apply_is_selection_isolated_and_restores_state(self):
+        helper = next(
+            node
+            for node in self.tree.body
+            if isinstance(node, ast.FunctionDef) and node.name == "_apply_object_transform"
+        )
+        helper_source = ast.get_source_segment(self.source, helper)
+        self.assertIn("previous_selected", helper_source)
+        self.assertIn("previous_active", helper_source)
+        self.assertIn("finally", helper_source)
+        self.assertEqual(self.source.count("bpy.ops.object.transform_apply"), 1)
+
+    def test_socket_file_writes_are_restricted_to_workdir(self):
+        render_branch = self.source[
+            self.source.index('if name == "precision_render_white_model"') :
+            self.source.index('if name == "precision_save_checkpoint"')
+        ]
+        checkpoint_branch = self.source[
+            self.source.index('if name == "precision_save_checkpoint"') :
+            self.source.index('if name == "precision_commit"')
+        ]
+        for branch in (render_branch, checkpoint_branch):
+            self.assertIn("_safe_work_path", branch)
+            self.assertNotIn("os.path.abspath", branch)
+
+    def test_white_model_render_validates_and_applies_requested_view(self):
+        render_branch = self.source[
+            self.source.index('if name == "precision_render_white_model"') :
+            self.source.index('if name == "precision_save_checkpoint"')
+        ]
+        self.assertIn('"orthographic"', render_branch)
+        self.assertIn('"perspective"', render_branch)
+        self.assertIn('camera.data.type = "ORTHO"', render_branch)
+        self.assertIn('camera.data.type = "PERSP"', render_branch)
+        self.assertLess(render_branch.index("camera.data.type"), render_branch.index("bpy.ops.render.render"))
+
+    def test_camera_and_qa_share_aggregate_bounds(self):
+        self.assertIn("_aggregate_bounds", self.source)
+        camera_branch = self.source[
+            self.source.index('if name == "precision_frame_camera"') :
+            self.source.index('if name == "precision_render_white_model"')
+        ]
+        self.assertIn("_aggregate_bounds", camera_branch)
+        self.assertLess(camera_branch.index("camera.data.lens"), camera_branch.index("distance"))
+        self.assertIn("resolution_x", camera_branch)
+        self.assertIn("resolution_y", camera_branch)
+
+
+if __name__ == "__main__":
+    unittest.main()

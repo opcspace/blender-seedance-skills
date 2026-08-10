@@ -1,0 +1,26 @@
+{
+  "spec_version": "2.0",
+  "job_id": "fixture-architecture-wall-opening",
+  "assets": [
+    {
+      "asset_id": "wall",
+      "role": "fit_critical",
+      "source": "procedural",
+      "target_dimensions": [4000.0, 200.0, 2800.0],
+      "location": [0.0, 0.0, 1400.0],
+      "rotation_deg": [0.0, 0.0, 0.0],
+      "anchors": ["floor-center", "opening-sill-left", "opening-sill-right"],
+      "provenance": "Calibrated architectural dimensions: 4000 x 200 x 2800 mm wall."
+    },
+    {
+      "asset_id": "opening-guide",
+      "role": "visual_shell",
+      "source": "procedural",
+      "target_dimensions": [900.0, 200.0, 2000.0],
+      "location": [0.0, 0.0, 1000.0],
+      "rotation_deg": [0.0, 0.0, 0.0],
+      "anchors": ["sill-left", "sill-right", "head-center"],
+      "provenance": "Calibrated 900 x 2000 mm opening guide for the wall fixture."
+    }
+  ]
+}

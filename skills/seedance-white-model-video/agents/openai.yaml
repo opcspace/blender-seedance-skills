@@ -1,0 +1,4 @@
+interface:
+  display_name: "Seedance White Model Video"
+  short_description: "Prepare verified white models for Seedance video"
+  default_prompt: "Use $seedance-white-model-video to prepare this QA-approved white model for Seedance."
