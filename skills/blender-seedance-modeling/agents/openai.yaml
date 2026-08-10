@@ -1,0 +1,4 @@
+interface:
+  display_name: "Blender Seedance Modeling"
+  short_description: "Route Blender white-model and Seedance workflows"
+  default_prompt: "Use $blender-seedance-modeling to route this Blender-to-Seedance production request."

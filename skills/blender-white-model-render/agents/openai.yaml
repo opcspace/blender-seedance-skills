@@ -1,0 +1,4 @@
+interface:
+  display_name: "Blender White Model Render"
+  short_description: "Render neutral Blender white-model previews"
+  default_prompt: "Use $blender-white-model-render to render this committed white-model scene."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Blender Modeling"
+  short_description: "Build and edit Blender scenes from prompts or references"
+  default_prompt: "Use $blender-modeling to build or revise this editable Blender scene."
