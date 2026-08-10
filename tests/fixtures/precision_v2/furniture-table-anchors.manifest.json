@@ -1,0 +1,16 @@
+{
+  "spec_version": "2.0",
+  "job_id": "fixture-furniture-table-anchors",
+  "assets": [
+    {
+      "asset_id": "table",
+      "role": "fit_critical",
+      "source": "procedural",
+      "target_dimensions": [1200.0, 600.0, 750.0],
+      "location": [0.0, 0.0, 375.0],
+      "rotation_deg": [0.0, 0.0, 0.0],
+      "anchors": ["floor-center", "leg-front-left", "leg-front-right", "leg-rear-left", "leg-rear-right"],
+      "provenance": "Calibrated 1200 x 600 x 750 mm table envelope with four leg anchors."
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "spec_version": "2.0",
+  "job_id": "fixture-architecture-wall-opening",
+  "category": "architecture",
+  "requested_grade": "L1",
+  "units": "mm",
+  "coordinate_system": {"up": "Z", "handedness": "right"},
+  "reference_calibrated": true,
+  "measurements": [
+    {"id": "wall-global-width", "kind": "global_envelope", "asset_id": "wall", "axis": "X", "target": 4000.0, "tolerance_abs": 1.0, "required": true, "scope": "global"},
+    {"id": "wall-primary-height", "kind": "dimension", "asset_id": "wall", "axis": "Z", "target": 2800.0, "tolerance_abs": 1.0, "required": true, "scope": "primary"},
+    {"id": "wall-thickness", "kind": "dimension", "asset_id": "wall", "axis": "Y", "target": 200.0, "tolerance_abs": 1.0, "required": true, "scope": "primary"},
+    {"id": "opening-width", "kind": "dimension", "asset_id": "opening-guide", "axis": "X", "target": 900.0, "tolerance_abs": 1.0, "required": true, "scope": "opening"},
+    {"id": "opening-height", "kind": "dimension", "asset_id": "opening-guide", "axis": "Z", "target": 2000.0, "tolerance_abs": 1.0, "required": true, "scope": "opening"},
+    {"id": "wall-floor-contact", "kind": "contact", "asset_id": "wall", "target": 0.0, "tolerance_abs": 1.0, "required": true, "scope": "contact"},
+    {"id": "opening-sill-anchor-span", "kind": "distance", "asset_id": "opening-guide", "target": 900.0, "tolerance_abs": 1.0, "required": true, "scope": "anchor"}
+  ]
+}

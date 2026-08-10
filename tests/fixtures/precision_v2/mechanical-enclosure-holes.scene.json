@@ -1,0 +1,20 @@
+{
+  "spec_version": "2.0",
+  "job_id": "fixture-mechanical-enclosure-holes",
+  "category": "mechanical",
+  "requested_grade": "L1",
+  "units": "mm",
+  "coordinate_system": {"up": "Z", "handedness": "right"},
+  "reference_calibrated": true,
+  "measurements": [
+    {"id": "enclosure-global-width", "kind": "global_envelope", "asset_id": "enclosure", "axis": "X", "target": 600.0, "tolerance_abs": 0.5, "required": true, "scope": "global"},
+    {"id": "enclosure-primary-depth", "kind": "dimension", "asset_id": "enclosure", "axis": "Y", "target": 400.0, "tolerance_abs": 0.5, "required": true, "scope": "primary"},
+    {"id": "enclosure-height", "kind": "dimension", "asset_id": "enclosure", "axis": "Z", "target": 250.0, "tolerance_abs": 0.5, "required": true, "scope": "primary"},
+    {"id": "hole-01-diameter", "kind": "dimension", "asset_id": "hole-01", "axis": "X", "target": 8.0, "tolerance_abs": 0.5, "required": true, "scope": "feature"},
+    {"id": "hole-02-diameter", "kind": "dimension", "asset_id": "hole-02", "axis": "X", "target": 8.0, "tolerance_abs": 0.5, "required": true, "scope": "feature"},
+    {"id": "hole-03-diameter", "kind": "dimension", "asset_id": "hole-03", "axis": "X", "target": 8.0, "tolerance_abs": 0.5, "required": true, "scope": "feature"},
+    {"id": "hole-04-diameter", "kind": "dimension", "asset_id": "hole-04", "axis": "X", "target": 8.0, "tolerance_abs": 0.5, "required": true, "scope": "feature"},
+    {"id": "enclosure-base-contact", "kind": "contact", "asset_id": "enclosure", "target": 0.0, "tolerance_abs": 0.5, "required": true, "scope": "contact"},
+    {"id": "front-hole-anchor-span", "kind": "distance", "asset_id": "enclosure", "target": 500.0, "tolerance_abs": 0.5, "required": true, "scope": "anchor"}
+  ]
+}

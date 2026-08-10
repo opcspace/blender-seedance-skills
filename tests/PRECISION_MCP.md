@@ -1,95 +1,54 @@
-# Precision MCP MVP verification
+# Precision Core V2 verification record
 
-Date: 2026-08-09
+Date: 2026-08-10
 
-## Passed
+## Portable verification
 
-- `precision_mcp/server.py` and `precision_addon.py` pass Python AST parsing.
-- Both files pass compilation with `PYTHONPYCACHEPREFIX=/tmp/precision-mcp-pycache python3 -m py_compile ...`.
-- Blender executable was found at `/Applications/Blender.app/Contents/MacOS/Blender` and reports Blender 5.2.0 LTS.
-- The implementation exposes only typed precision commands: mesh creation, exact dimensions, geometry inspection, camera framing, Workbench render, commit and abort.
+The portable acceptance layer is separate from Blender runtime acceptance. It validates all four calibrated SceneSpec/AssetManifest pairs, matching job IDs, deterministic contract-valid plans, required L1 gate categories, exact subject dimensions/tolerances, and the imported prop route:
 
-## Blocked runtime check
-
-The headless Blender process crashes during Blender GPU backend initialization before executing the test script. The crash backtrace points to `gpu::MTLBackend::metal_is_supported`, not to the precision addon. Therefore this is not recorded as a passed Blender integration test.
-
-The next runtime test must load the addon in the existing GUI Blender session, enable it on port `9877`, and then call the MCP tools against that port. Until that is done, the repo must not claim that the precision MCP is installed or runtime-validated.
-
-## Known MVP boundary
-
-`precision_abort` removes only objects created after the current transaction begins. It does not restore an external `.blend` file; the higher-level Skill should still create a checkpoint before destructive operations.
-
-## GUI integration attempt
-
-- The existing 8400 listener was checked, but it was no longer reachable when the isolated test was started.
-- A separate GUI Blender launch was attempted with `precision_gui_boot.py`.
-- Blender exited before Python startup with a Metal backend crash in `gpu::MTLBackend::metal_is_supported`.
-- `--gpu-backend opengl` is unavailable in this Blender build; the executable reports only `[metal]`.
-- Result: addon runtime and `9877` socket behavior remain unverified on this machine.
-
-## GUI integration passed
-
-On the same machine, the test was retried by launching Blender through macOS GUI permissions:
-
-```text
-Blender 5.2.0 LTS
-127.0.0.1:9877 listening
-CAD status: module_available=false (CAD Sketcher not installed)
-dimensions: [2.0, 4.0, 1.0]
-non_manifold_edges: 0
-ground_z: 0.0
-QA: passed=true, tolerance=0.01, issues=[]
-checkpoint: exists=true, 99626 bytes
-white-model preview: exists=true, 53874 bytes
-commit: ok=true
-abort: removed_new_objects=1
+```bash
+python -m unittest tests.test_precision_fixtures -v
+python -m py_compile tests/precision_v2_gui_test.py
+python -c "import glob,json; paths=glob.glob('tests/fixtures/precision_v2/*.json'); [json.load(open(path, encoding='utf-8')) for path in paths]; print(f'fixtures: {len(paths)} OK')"
 ```
 
-Preview artifact: [`precision_preview.png`](assets/precision_mcp/precision_preview.png).
-Checkpoint artifact: [`precision_checkpoint.blend`](assets/precision_mcp/precision_checkpoint.blend).
+Result: **PASS** — 4 fixture tests passed, the manual runner compiled, and 8 fixture JSON documents parsed. This result does not prove that Blender created, measured, rendered, or saved any asset.
 
-This proves the typed precision runtime path on Blender 5.2. The CAD constraint result is recorded below.
+Portable subjects:
 
-## CAD Sketcher solver verification
+- Architecture: calibrated 4000 × 200 × 2800 mm wall, 900 × 2000 mm opening, 1 mm tolerance.
+- Mechanical: calibrated 600 × 400 × 250 mm enclosure, four 8 mm hole guides, 0.5 mm tolerance.
+- Furniture: calibrated 1200 × 600 × 750 mm table with four leg anchors, 1 mm tolerance.
+- Props: calibrated imported 1000 mm handled tool with declared Z-up target, 1 mm tolerance.
 
-CAD Sketcher 0.3.0 was installed from its official extension source and its bundled macOS ARM64
-CPython 3.13 `slvs` wheel was installed into Blender's user Python site-packages. After restarting
-the GUI session, `precision_cad_status` returned:
+## Real Blender 5.2 GUI acceptance
 
-```text
-available=true
-scene_properties_available=true
-solver_available=true
-operator_available=true
-solver_registered=true
+**BLOCKED: Blender executable/runtime unavailable; GLB/FBX fixtures not generated**
+
+No `.blend`, GLB/FBX, preview, checksum, or L2 runtime result was fabricated. In particular, `tests/assets/precision_v2/import-cube.glb` is absent and is a required user-supplied input for the imported prop acceptance.
+
+The intended command, after enabling `precision-mcp/blender_addon/precision_addon.py` in a real Blender 5.2 GUI session on framed port 9877, is:
+
+```bash
+PRECISION_WORKDIR="$PWD/tests/assets/precision_v2" python tests/precision_v2_gui_test.py
 ```
 
-The next verification is `tests/precision_cad_socket_test.py`, which creates a 3.0 x 2.0 rectangle,
-adds horizontal/vertical and width/height constraints, and requires a successful solver result.
-
-The CAD test was executed successfully:
+The runner starts the FastMCP stdio server and keeps one MCP SDK `ClientSession` for preparation, typed plan execution, an allow-listed patch, validation, and finalization. It never opens a raw socket. A successful future run must print and substantiate:
 
 ```text
-CAD_STATUS: available=true, solver_available=true, operator_available=true, solver_registered=true
-CAD_RECTANGLE: solved=true, solver_state=OKAY, dof=0, entity_count=8, constraint_count=6
-target_dimensions: [3.0, 2.0]
+architecture L2 PASS
+mechanical L2 PASS
+furniture L2 PASS
+props L2 PASS
+uncalibrated L0 PASS
+failed-required-dimension NOT-L2 PASS
+path-escape REJECTED PASS
 ```
 
-Together, the two tests prove the dimension-driven mesh path and a real constraint-solved sketch path.
+It must also leave validated contracts, `qa_report.json`, `before.blend`, a checksummed `final.blend`, and orthographic/perspective previews under each `evidence/<job-id>/`. Until those files and hashes exist from the real runtime, V2 GUI acceptance remains blocked.
 
-`tests/precision_seven_category_socket_test.py` also submits a repeatable `model_spec` through the
-MCP for all seven BaseMesh categories. Each category creates two named parameterized parts and passes
-the same geometry/ground QA contract. This verifies category routing and reproducibility; it does not
-claim that two primitive parts are a finished character, creature or environment asset.
+Stopping the Blender listener mid-call is a manual negative case: the MCP result must be a structured connection error, not a hang or raw-socket traceback. It was not executed in the unavailable runtime.
 
-The live Blender 5.2 output was:
+## Historical diagnostics are not V2 proof
 
-```text
-character parts=2 qa=passed
-creature parts=2 qa=passed
-props parts=2 qa=passed
-architecture parts=2 qa=passed
-hard_surface parts=2 qa=passed
-environment parts=2 qa=passed
-abstract parts=2 qa=passed
-```
+Earlier Blender 5.2 MVP diagnostics exercised primitive creation, CAD Sketcher, seven-category routing, transaction abort, and preview/checkpoint output. The scripts `precision_socket_test.py`, `precision_cad_socket_test.py`, `precision_seven_category_socket_test.py`, and `precision_gui_boot.py` are retained as legacy diagnostics. They use the direct add-on path and do not establish the V2 contract, evidence, grade, or same-session FastMCP workflow described above.
