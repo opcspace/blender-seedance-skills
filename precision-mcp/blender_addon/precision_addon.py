@@ -324,10 +324,42 @@ def _file_sha256(filepath):
 
 
 def _apply_object_transform(obj, *, rotation=True, scale=True):
-    bpy.ops.object.select_all(action="DESELECT")
-    obj.select_set(True)
-    bpy.context.view_layer.objects.active = obj
-    bpy.ops.object.transform_apply(location=False, rotation=rotation, scale=scale)
+    view_layer = bpy.context.view_layer
+    previous_selected = tuple(bpy.context.selected_objects)
+    previous_active = view_layer.objects.active
+    try:
+        for selected in tuple(bpy.context.selected_objects):
+            selected.select_set(False)
+        obj.select_set(True)
+        view_layer.objects.active = obj
+        bpy.ops.object.transform_apply(
+            location=False,
+            rotation=rotation,
+            scale=scale,
+        )
+    finally:
+        for selected in tuple(bpy.context.selected_objects):
+            selected.select_set(False)
+        for selected in previous_selected:
+            if bpy.data.objects.get(selected.name) is selected:
+                selected.select_set(True)
+        try:
+            view_layer.objects.active = previous_active
+        except (ReferenceError, RuntimeError):
+            view_layer.objects.active = None
+
+
+def _bake_parent_transform(root, objects):
+    world_matrices = [(obj, obj.matrix_world.copy()) for obj in objects]
+    root.rotation_euler = (0.0, 0.0, 0.0)
+    root.scale = (1.0, 1.0, 1.0)
+    bpy.context.view_layer.update()
+    for obj, world_matrix in world_matrices:
+        obj.matrix_world = world_matrix
+    for obj, _ in world_matrices:
+        if obj.type == "MESH":
+            _apply_object_transform(obj)
+    bpy.context.view_layer.update()
 
 
 def _asset_root(job, asset_id):
@@ -392,6 +424,19 @@ def _aabb_overlaps(first_min, first_max, second_min, second_max):
         and second_min[axis] <= first_max[axis]
         for axis in range(3)
     )
+
+
+def _world_space_bvh(obj, dependencies):
+    evaluated = obj.evaluated_get(dependencies)
+    mesh = None
+    try:
+        mesh = evaluated.to_mesh()
+        vertices = [evaluated.matrix_world @ vertex.co for vertex in mesh.vertices]
+        polygons = [tuple(polygon.vertices) for polygon in mesh.polygons]
+        return BVHTree.FromPolygons(vertices, polygons, all_triangles=False)
+    finally:
+        if mesh is not None:
+            evaluated.to_mesh_clear()
 
 
 def _raw_mesh_report(obj):
@@ -471,9 +516,7 @@ def _set_dimensions(obj, dimensions):
         if current[axis] <= 1e-9:
             raise ValueError(f"cannot normalize zero dimension on axis {axis}")
         obj.scale[axis] *= float(dimensions[axis]) / current[axis]
-    bpy.context.view_layer.objects.active = obj
-    obj.select_set(True)
-    bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
+    _apply_object_transform(obj, rotation=False, scale=True)
 
 
 def _set_metadata(obj, metadata):
@@ -665,9 +708,16 @@ def execute(command):
         else:
             root.rotation_euler.x = 0.0
         bpy.context.view_layer.update()
+        asset_objects = [
+            obj
+            for obj in _job_asset_objects(job, asset_id)
+            if obj is not root
+        ]
         meshes = _job_asset_objects(job, asset_id, meshes_only=True)
         if not meshes:
             raise ValueError(f"asset has no mesh objects: {asset_id}")
+        # Bake the unit and axis conversion before deriving world-axis XYZ ratios.
+        _bake_parent_transform(root, asset_objects)
         minimum, maximum = _aggregate_bounds(meshes)
         current_dimensions = maximum - minimum
         target_dimensions = params.get("target_dimensions") or params.get("dimensions")
@@ -683,22 +733,13 @@ def execute(command):
             ]
             if scaling_mode == "uniform":
                 uniform_factor = min(ratios)
-                root.scale = tuple(float(value) * uniform_factor for value in root.scale)
+                root.scale = (uniform_factor, uniform_factor, uniform_factor)
             elif scaling_mode in {"explicit", "explicit_xyz", "xyz"}:
-                root.scale = tuple(
-                    float(root.scale[index]) * ratios[index] for index in range(3)
-                )
+                root.scale = tuple(ratios)
             else:
                 raise ValueError("scaling_mode must be uniform or explicit_xyz")
         bpy.context.view_layer.update()
-        world_matrices = {obj.name: obj.matrix_world.copy() for obj in meshes}
-        root.rotation_euler = (0.0, 0.0, 0.0)
-        root.scale = (1.0, 1.0, 1.0)
-        bpy.context.view_layer.update()
-        for obj in meshes:
-            obj.matrix_world = world_matrices[obj.name]
-            _apply_object_transform(obj)
-        bpy.context.view_layer.update()
+        _bake_parent_transform(root, asset_objects)
         minimum, maximum = _aggregate_bounds(meshes)
         provenance = str(
             params.get("provenance") or root.get("precision_provenance", "")
@@ -906,9 +947,9 @@ def execute(command):
                 if not _aabb_overlaps(first_min, first_max, second_min, second_max):
                     continue
                 if first.name not in bvh_cache:
-                    bvh_cache[first.name] = BVHTree.FromObject(first, dependencies)
+                    bvh_cache[first.name] = _world_space_bvh(first, dependencies)
                 if second.name not in bvh_cache:
-                    bvh_cache[second.name] = BVHTree.FromObject(second, dependencies)
+                    bvh_cache[second.name] = _world_space_bvh(second, dependencies)
                 if bvh_cache[first.name].overlap(bvh_cache[second.name]):
                     collision_pairs.append([first.name, second.name])
         anchors = {}
@@ -1021,8 +1062,7 @@ def execute(command):
                 raise ValueError("plane dimensions must contain positive X and Y values")
             obj.scale.x = float(dims[0])
             obj.scale.y = float(dims[1])
-            bpy.context.view_layer.objects.active = obj
-            bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
+            _apply_object_transform(obj, rotation=False, scale=True)
         else:
             _set_dimensions(obj, params["dimensions"])
         _set_metadata(obj, params.get("metadata"))
@@ -1192,10 +1232,16 @@ def execute(command):
         vertical_fov = 2.0 * math.atan(
             math.tan(horizontal_fov / 2.0) / max(render_aspect, 1e-6)
         )
-        effective_fov = min(horizontal_fov, vertical_fov)
         radius = max(float((maximum - minimum).length) * 0.5, 1e-6)
-        distance = radius / max(math.tan(effective_fov / 2.0) * fill, 1e-6)
         view_direction = Vector((1.0, -1.0, 0.55)).normalized()
+        if camera.data.type == "ORTHO":
+            camera.data.ortho_scale = (
+                2.0 * radius * max(1.0, 1.0 / max(render_aspect, 1e-6)) / fill
+            )
+            distance = max(radius * 3.0, 1.0)
+        else:
+            effective_fov = min(horizontal_fov, vertical_fov)
+            distance = radius / max(math.tan(effective_fov / 2.0) * fill, 1e-6)
         camera.location = center + view_direction * distance
         _look_at(camera, center)
         return {
@@ -1208,6 +1254,9 @@ def execute(command):
         }
     if name == "precision_render_white_model":
         scene = bpy.context.scene
+        view = str(params.get("view", "perspective")).lower()
+        if view not in {"orthographic", "perspective"}:
+            raise ValueError("view must be orthographic or perspective")
         scene.render.engine = "BLENDER_WORKBENCH"
         scene.render.resolution_x = int(params.get("resolution_x", 640))
         scene.render.resolution_y = int(params.get("resolution_y", 360))
@@ -1215,12 +1264,35 @@ def execute(command):
         scene.display.shading.light = "STUDIO"
         scene.display.shading.color_type = "SINGLE"
         scene.display.shading.single_color = (0.72, 0.72, 0.72)
-        filepath = os.path.abspath(params["filepath"])
+        camera = scene.camera
+        if camera is None:
+            camera_data = bpy.data.cameras.new("PRECISION_Camera")
+            camera = bpy.data.objects.new("PRECISION_Camera", camera_data)
+            bpy.context.collection.objects.link(camera)
+            scene.camera = camera
+        if view == "orthographic":
+            camera.data.type = "ORTHO"
+        else:
+            camera.data.type = "PERSP"
+        if params.get("job_id"):
+            execute(
+                {
+                    "type": "precision_frame_camera",
+                    "params": {
+                        "job_id": params["job_id"],
+                        "asset_id": params.get("asset_id"),
+                        "target_fill": params.get("target_fill", 0.72),
+                        "lens_mm": params.get("lens_mm", 50.0),
+                    },
+                }
+            )
+        filepath = _safe_work_path(params["filepath"])
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
         scene.render.filepath = filepath
         bpy.ops.render.render(write_still=True)
-        return {"filepath": filepath, "exists": os.path.exists(filepath)}
+        return {"filepath": filepath, "exists": os.path.exists(filepath), "view": view}
     if name == "precision_save_checkpoint":
-        filepath = os.path.abspath(params["filepath"])
+        filepath = _safe_work_path(params["filepath"])
         os.makedirs(os.path.dirname(filepath), exist_ok=True)
         bpy.ops.wm.save_as_mainfile(filepath=filepath, copy=True)
         return {"filepath": filepath, "exists": os.path.exists(filepath)}

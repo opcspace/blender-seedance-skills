@@ -104,7 +104,11 @@ class PrecisionAddonSourceTests(unittest.TestCase):
 
     def test_inspection_uses_bvh_for_confirmed_collisions(self):
         for marker in (
-            "BVHTree.FromObject",
+            "_world_space_bvh",
+            "BVHTree.FromPolygons",
+            "evaluated_get",
+            "matrix_world @ vertex.co",
+            "to_mesh_clear",
             "collision_pairs",
             "contact_distances",
             "degenerate_polygons",
@@ -112,6 +116,51 @@ class PrecisionAddonSourceTests(unittest.TestCase):
             "applied_scale",
         ):
             self.assertIn(marker, self.source)
+        self.assertNotIn("BVHTree.FromObject", self.source)
+
+    def test_explicit_xyz_scaling_happens_after_axis_rotation_is_baked(self):
+        branch = self.source[
+            self.source.index('if name == "precision_normalize_asset"') :
+            self.source.index('if name == "precision_set_transform"')
+        ]
+        self.assertIn("_bake_parent_transform", branch)
+        self.assertLess(branch.index("_bake_parent_transform"), branch.index("ratios ="))
+
+    def test_transform_apply_is_selection_isolated_and_restores_state(self):
+        helper = next(
+            node
+            for node in self.tree.body
+            if isinstance(node, ast.FunctionDef) and node.name == "_apply_object_transform"
+        )
+        helper_source = ast.get_source_segment(self.source, helper)
+        self.assertIn("previous_selected", helper_source)
+        self.assertIn("previous_active", helper_source)
+        self.assertIn("finally", helper_source)
+        self.assertEqual(self.source.count("bpy.ops.object.transform_apply"), 1)
+
+    def test_socket_file_writes_are_restricted_to_workdir(self):
+        render_branch = self.source[
+            self.source.index('if name == "precision_render_white_model"') :
+            self.source.index('if name == "precision_save_checkpoint"')
+        ]
+        checkpoint_branch = self.source[
+            self.source.index('if name == "precision_save_checkpoint"') :
+            self.source.index('if name == "precision_commit"')
+        ]
+        for branch in (render_branch, checkpoint_branch):
+            self.assertIn("_safe_work_path", branch)
+            self.assertNotIn("os.path.abspath", branch)
+
+    def test_white_model_render_validates_and_applies_requested_view(self):
+        render_branch = self.source[
+            self.source.index('if name == "precision_render_white_model"') :
+            self.source.index('if name == "precision_save_checkpoint"')
+        ]
+        self.assertIn('"orthographic"', render_branch)
+        self.assertIn('"perspective"', render_branch)
+        self.assertIn('camera.data.type = "ORTHO"', render_branch)
+        self.assertIn('camera.data.type = "PERSP"', render_branch)
+        self.assertLess(render_branch.index("camera.data.type"), render_branch.index("bpy.ops.render.render"))
 
     def test_camera_and_qa_share_aggregate_bounds(self):
         self.assertIn("_aggregate_bounds", self.source)
