@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "asset_manifest.schema.json",
+  "title": "Precision Asset Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["spec_version", "job_id", "assets"],
+  "properties": {
+    "spec_version": {"const": "2.0"},
+    "job_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+    },
+    "assets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "asset_id",
+          "role",
+          "source",
+          "target_dimensions",
+          "location",
+          "rotation_deg",
+          "anchors"
+        ],
+        "properties": {
+          "asset_id": {"type": "string", "minLength": 1},
+          "role": {"enum": ["fit_critical", "visual_shell", "stage"]},
+          "source": {
+            "enum": ["procedural", "cad_sketcher", "imported", "tripo", "user"]
+          },
+          "target_dimensions": {"$ref": "#/$defs/vector3"},
+          "location": {"$ref": "#/$defs/vector3"},
+          "rotation_deg": {"$ref": "#/$defs/vector3"},
+          "anchors": {
+            "type": "array",
+            "items": {"type": "string", "minLength": 1}
+          },
+          "provenance": {"type": "string"},
+          "checksum": {"type": "string", "minLength": 1}
+        }
+      }
+    }
+  },
+  "$defs": {
+    "vector3": {
+      "type": "array",
+      "items": {"type": "number"},
+      "minItems": 3,
+      "maxItems": 3
+    }
+  }
+}

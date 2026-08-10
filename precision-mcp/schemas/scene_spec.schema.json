@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "scene_spec.schema.json",
+  "title": "Precision Scene Specification",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "spec_version",
+    "job_id",
+    "category",
+    "requested_grade",
+    "units",
+    "coordinate_system",
+    "reference_calibrated",
+    "measurements"
+  ],
+  "properties": {
+    "spec_version": {"const": "2.0"},
+    "job_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"
+    },
+    "category": {
+      "enum": ["architecture", "mechanical", "furniture", "props"]
+    },
+    "requested_grade": {"enum": ["L0", "L1", "L2"]},
+    "units": {"enum": ["mm", "cm", "m"]},
+    "coordinate_system": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["up", "handedness"],
+      "properties": {
+        "up": {"enum": ["X", "Y", "Z"]},
+        "handedness": {"enum": ["left", "right"]}
+      }
+    },
+    "reference_calibrated": {"type": "boolean"},
+    "measurements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "kind",
+          "asset_id",
+          "target",
+          "tolerance_abs",
+          "required",
+          "scope"
+        ],
+        "properties": {
+          "id": {"type": "string", "minLength": 1},
+          "kind": {
+            "enum": [
+              "dimension",
+              "distance",
+              "gap",
+              "contact",
+              "collision_clearance",
+              "global_envelope"
+            ]
+          },
+          "asset_id": {"type": "string", "minLength": 1},
+          "axis": {"enum": ["X", "Y", "Z"]},
+          "target": {"type": "number"},
+          "tolerance_abs": {"type": "number", "minimum": 0},
+          "required": {"type": "boolean"},
+          "scope": {"type": "string"}
+        }
+      }
+    }
+  }
+}
