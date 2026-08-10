@@ -7,6 +7,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parents[1] / "precision-mcp"))
 
 from precision_mcp.contracts import ContractError, validate_document
+from precision_mcp.measurements import evaluate_assertion
 
 
 JOB_ID = "chair-fit-01"
@@ -111,6 +112,22 @@ class PrecisionContractTests(unittest.TestCase):
 
     def test_valid_qa_report(self):
         self.assertIs(validate_document("qa_report", QA_REPORT), QA_REPORT)
+
+    def test_zero_target_assertion_with_null_relative_error_is_valid_qa(self):
+        document = copy.deepcopy(QA_REPORT)
+        document["assertions"] = [
+            evaluate_assertion(
+                {
+                    "id": "origin-offset",
+                    "target": 0.0,
+                    "tolerance_abs": 0.1,
+                    "required": True,
+                    "scope": "anchor",
+                },
+                0.0,
+            )
+        ]
+        self.assertIs(validate_document("qa_report", document), document)
 
     def test_missing_measurement_tolerance_reports_field_path(self):
         document = copy.deepcopy(SCENE_SPEC)

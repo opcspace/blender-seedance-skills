@@ -112,6 +112,10 @@ def framed_response(response):
     return struct.pack("!I", len(body)) + body
 
 
+def framed_bytes(body):
+    return struct.pack("!I", len(body)) + body
+
+
 class PrecisionTransportTests(unittest.TestCase):
     def test_bridge_opens_a_fresh_connection_for_each_call(self):
         with TwoCallPeer() as peer:
@@ -167,6 +171,44 @@ class PrecisionTransportTests(unittest.TestCase):
             bridge = BlenderBridge("127.0.0.1", peer.port, timeout=1)
             with self.assertRaisesRegex(RuntimeError, "operation failed"):
                 bridge.call("fail")
+
+    def test_zero_length_response_frame_is_rejected(self):
+        with SingleCallPeer(lambda _request: [struct.pack("!I", 0)]) as peer:
+            bridge = BlenderBridge("127.0.0.1", peer.port, timeout=1)
+            with self.assertRaisesRegex(BridgeProtocolError, "response frame is empty"):
+                bridge.call("empty")
+
+    def test_malformed_utf8_response_is_protocol_error(self):
+        with SingleCallPeer(lambda _request: [framed_bytes(b"\xff")]) as peer:
+            bridge = BlenderBridge("127.0.0.1", peer.port, timeout=1)
+            with self.assertRaisesRegex(BridgeProtocolError, "response is not valid UTF-8"):
+                bridge.call("utf8")
+
+    def test_malformed_json_response_is_protocol_error(self):
+        with SingleCallPeer(lambda _request: [framed_bytes(b"{")]) as peer:
+            bridge = BlenderBridge("127.0.0.1", peer.port, timeout=1)
+            with self.assertRaisesRegex(BridgeProtocolError, "response is not valid JSON"):
+                bridge.call("json")
+
+    def test_non_object_json_response_is_protocol_error(self):
+        with SingleCallPeer(lambda _request: [framed_response([])]) as peer:
+            bridge = BlenderBridge("127.0.0.1", peer.port, timeout=1)
+            with self.assertRaisesRegex(BridgeProtocolError, "response must be a JSON object"):
+                bridge.call("array")
+
+    def test_missing_or_unknown_status_is_protocol_error(self):
+        for status in (None, "pending"):
+            with self.subTest(status=status):
+                def responder(request, response_status=status):
+                    response = {"request_id": request["request_id"]}
+                    if response_status is not None:
+                        response["status"] = response_status
+                    return [framed_response(response)]
+
+                with SingleCallPeer(responder) as peer:
+                    bridge = BlenderBridge("127.0.0.1", peer.port, timeout=1)
+                    with self.assertRaisesRegex(BridgeProtocolError, "response status"):
+                        bridge.call("status")
 
 
 if __name__ == "__main__":

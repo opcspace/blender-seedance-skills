@@ -68,15 +68,28 @@ class BlenderBridge:
             sock.settimeout(self.timeout)
             sock.sendall(self._encode(request))
             response_size = struct.unpack("!I", read_exact(sock, 4))[0]
+            if response_size == 0:
+                raise BridgeProtocolError("response frame is empty")
             if response_size > self.max_message_bytes:
                 raise BridgeProtocolError("response exceeds max_message_bytes")
-            response = json.loads(
-                read_exact(sock, response_size).decode("utf-8")
-            )
+            response_body = read_exact(sock, response_size)
+            try:
+                response_text = response_body.decode("utf-8")
+            except UnicodeDecodeError as error:
+                raise BridgeProtocolError("response is not valid UTF-8") from error
+            try:
+                response = json.loads(response_text)
+            except json.JSONDecodeError as error:
+                raise BridgeProtocolError("response is not valid JSON") from error
 
+        if not isinstance(response, dict):
+            raise BridgeProtocolError("response must be a JSON object")
         if response.get("request_id") != request_id:
             raise BridgeProtocolError("response request_id mismatch")
-        if response.get("status") == "error":
+        status = response.get("status")
+        if status not in {"success", "error"}:
+            raise BridgeProtocolError("response status must be success or error")
+        if status == "error":
             raise RuntimeError(
                 response.get("message", "Blender precision command failed")
             )

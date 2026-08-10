@@ -43,7 +43,7 @@
           "target": {"type": "number"},
           "actual": {"type": "number"},
           "absolute_error": {"type": "number", "minimum": 0},
-          "relative_error": {"type": "number", "minimum": 0},
+          "relative_error": {"type": ["number", "null"], "minimum": 0},
           "tolerance_abs": {"type": "number", "minimum": 0},
           "passed": {"type": "boolean"},
           "required": {"type": "boolean"},

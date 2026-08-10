@@ -61,6 +61,7 @@ def derive_grade(
     geometry_ok: bool,
     checkpoint_ok: bool,
     provenance_ok: bool,
+    assumptions_ok: bool = False,
 ) -> dict[str, Any]:
     """Derive an L0/L1/L2 grade and explicit downgrade reasons."""
     if not reference_calibrated:
@@ -77,18 +78,46 @@ def derive_grade(
         for assertion in failed_required
     )
 
-    primary = [
-        assertion
-        for assertion in assertions
-        if assertion.get("scope") in {"global", "primary", "anchor"}
+    l1_gates = [
+        (
+            "global envelope measurements missing or failed",
+            lambda assertion: assertion.get("scope") == "global"
+            or assertion.get("kind") == "global_envelope",
+        ),
+        (
+            "primary measurements missing or failed",
+            lambda assertion: assertion.get("scope") == "primary",
+        ),
+        (
+            "ground contact measurements missing or failed",
+            lambda assertion: assertion.get("scope") == "contact"
+            or assertion.get("kind") == "contact",
+        ),
+        (
+            "key anchor measurements missing or failed",
+            lambda assertion: assertion.get("scope") == "anchor",
+        ),
     ]
-    l1_ok = bool(primary) and all(assertion.get("passed") for assertion in primary)
+    l1_results: list[bool] = []
+    for reason, contributes in l1_gates:
+        gate_assertions = [
+            assertion for assertion in assertions if contributes(assertion)
+        ]
+        gate_ok = bool(gate_assertions) and all(
+            assertion.get("passed") is True for assertion in gate_assertions
+        )
+        l1_results.append(gate_ok)
+        if not gate_ok:
+            reasons.append(reason)
+
+    l1_ok = all(l1_results)
     l2_ok = (
-        not failed_required
-        and bool(assertions)
+        l1_ok
+        and not failed_required
         and geometry_ok
         and checkpoint_ok
         and provenance_ok
+        and assumptions_ok
     )
     if l2_ok:
         return {"grade": "L2", "reasons": []}
@@ -99,4 +128,6 @@ def derive_grade(
         reasons.append("final checkpoint missing")
     if not provenance_ok:
         reasons.append("asset provenance incomplete")
+    if not assumptions_ok:
+        reasons.append("unresolved assumptions remain")
     return {"grade": "L1" if l1_ok else "L0", "reasons": reasons}
