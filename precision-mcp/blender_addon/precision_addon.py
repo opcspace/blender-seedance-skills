@@ -10,9 +10,12 @@ import json
 import importlib
 import math
 import os
+import re
 import socket
+import struct
 import threading
 import traceback
+from dataclasses import dataclass, field
 from mathutils import Vector
 
 import bpy
@@ -20,9 +23,134 @@ import bpy
 
 HOST = "127.0.0.1"
 PORT = int(os.getenv("PRECISION_BLENDER_PORT", "9877"))
+MAX_FRAME_BYTES = 4 * 1024 * 1024
+WORKDIR = os.path.realpath(
+    os.path.abspath(os.path.expanduser(os.getenv("PRECISION_WORKDIR", os.getcwd())))
+)
+JOB_ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}$")
+LEGACY_JOB_ID = "legacy-v1"
 _server = None
 _transaction_prefix = None
 _transaction_preexisting = set()
+
+
+@dataclass
+class BlenderJob:
+    job_id: str
+    prefix: str
+    checkpoint: str
+    created_objects: set[str] = field(default_factory=set)
+    state: str = "active"
+
+
+_jobs = {}
+
+
+def _safe_work_path(filepath):
+    if not isinstance(filepath, (str, os.PathLike)) or not str(filepath):
+        raise ValueError("filepath must be a non-empty path")
+    candidate = os.path.expanduser(os.fspath(filepath))
+    if not os.path.isabs(candidate):
+        candidate = os.path.join(WORKDIR, candidate)
+    path = os.path.realpath(os.path.abspath(candidate))
+    try:
+        contained = os.path.commonpath([path, WORKDIR]) == WORKDIR
+    except ValueError:
+        contained = False
+    if not contained:
+        raise ValueError(f"path must be inside PRECISION_WORKDIR: {WORKDIR}")
+    return path
+
+
+def _validate_job_id(job_id):
+    if not isinstance(job_id, str) or JOB_ID_RE.fullmatch(job_id) is None:
+        raise ValueError("job_id must match ^[a-z0-9][a-z0-9-]{0,63}$")
+    return job_id
+
+
+def _require_job(job_id, *, active=True):
+    job_id = _validate_job_id(job_id)
+    job = _jobs.get(job_id)
+    if job is None:
+        raise ValueError(f"job not found: {job_id}")
+    if active and job.state != "active":
+        raise ValueError(f"job is not active: {job_id} ({job.state})")
+    return job
+
+
+def _begin_job(job_id, *, checkpoint=None, prefix=None):
+    job_id = _validate_job_id(job_id)
+    existing = _jobs.get(job_id)
+    if existing is not None and existing.state == "active":
+        raise ValueError(f"job is already active: {job_id}")
+    checkpoint = _safe_work_path(
+        checkpoint or os.path.join("jobs", job_id, "before.blend")
+    )
+    os.makedirs(os.path.dirname(checkpoint), exist_ok=True)
+    bpy.ops.wm.save_as_mainfile(filepath=checkpoint, copy=True)
+    job = BlenderJob(
+        job_id=job_id,
+        prefix=prefix or f"PRECISION_{job_id}_",
+        checkpoint=checkpoint,
+    )
+    _jobs[job_id] = job
+    return job
+
+
+def _commit_job(job_id, filepath=None):
+    job = _require_job(job_id)
+    final_checkpoint = _safe_work_path(
+        filepath or os.path.join("jobs", job_id, "final.blend")
+    )
+    os.makedirs(os.path.dirname(final_checkpoint), exist_ok=True)
+    bpy.ops.wm.save_as_mainfile(filepath=final_checkpoint, copy=True)
+    job.state = "committed"
+    return {
+        "job_id": job.job_id,
+        "state": job.state,
+        "checkpoint": final_checkpoint,
+    }
+
+
+def _abort_job(job_id):
+    job = _require_job(job_id)
+    job.state = "aborted"
+    restored = False
+    removed = 0
+    restore_error = None
+    if os.path.isfile(job.checkpoint):
+        try:
+            bpy.ops.wm.open_mainfile(filepath=job.checkpoint)
+            restored = True
+        except Exception as exc:
+            restore_error = str(exc)
+    else:
+        restore_error = f"checkpoint not found: {job.checkpoint}"
+    if not restored:
+        for object_name in sorted(job.created_objects):
+            obj = bpy.data.objects.get(object_name)
+            if obj is not None:
+                bpy.data.objects.remove(obj, do_unlink=True)
+                removed += 1
+    return {
+        "job_id": job.job_id,
+        "state": job.state,
+        "restored_checkpoint": restored,
+        "removed_created_objects": removed,
+        "restore_error": restore_error,
+    }
+
+
+def _track_created(job, *objects):
+    for obj in objects:
+        if obj is not None:
+            job.created_objects.add(obj.name)
+
+
+def _track_legacy_created(obj):
+    job = _jobs.get(LEGACY_JOB_ID)
+    if job is not None and job.state == "active":
+        _track_created(job, obj)
 
 
 def _owned(name: str, prefix: str) -> bool:
@@ -105,8 +233,27 @@ def execute(command):
     global _transaction_prefix, _transaction_preexisting
     name = command.get("type")
     params = command.get("params", {})
+    if name == "precision_begin_job":
+        job = _begin_job(params["job_id"], checkpoint=params.get("checkpoint"))
+        return {
+            "job_id": job.job_id,
+            "prefix": job.prefix,
+            "checkpoint": job.checkpoint,
+            "state": job.state,
+        }
+    if name == "precision_commit_job":
+        return _commit_job(
+            params["job_id"],
+            params.get("filepath") or params.get("checkpoint"),
+        )
+    if name == "precision_abort_job":
+        return _abort_job(params["job_id"])
     if name == "precision_begin":
         prefix = params.get("prefix", "PRECISION_")
+        existing = _jobs.get(LEGACY_JOB_ID)
+        if existing is not None and existing.state == "active":
+            existing.state = "superseded"
+        _begin_job(LEGACY_JOB_ID, prefix=prefix)
         _transaction_prefix = prefix
         _transaction_preexisting = {obj.name for obj in bpy.data.objects if _owned(obj.name, prefix)}
         deleted = 0
@@ -123,6 +270,7 @@ def execute(command):
         mesh.update()
         obj = bpy.data.objects.new(params["name"], mesh)
         bpy.context.collection.objects.link(obj)
+        _track_legacy_created(obj)
         if params.get("dimensions"):
             _set_dimensions(obj, params["dimensions"])
         return _inspect(obj)
@@ -143,6 +291,7 @@ def execute(command):
             raise ValueError("primitive must be cube, cylinder, cone, uv_sphere or plane")
         obj = bpy.context.object
         obj.name = params["name"]
+        _track_legacy_created(obj)
         if primitive == "plane":
             dims = params["dimensions"]
             if len(dims) != 3 or dims[0] <= 0 or dims[1] <= 0:
@@ -227,6 +376,7 @@ def execute(command):
         curve = bpy.data.hair_curves.new(params["name"] + "_Sketch")
         obj = bpy.data.objects.new(params["name"], curve)
         bpy.context.scene.collection.objects.link(obj)
+        _track_legacy_created(obj)
         sketch_ref.stamp_sketch_props(obj)
         sketch = sketch_ref.Sketch(obj)
         bpy.context.scene.sketcher.active_sketch_object = obj
@@ -314,33 +464,113 @@ def execute(command):
         bpy.ops.wm.save_as_mainfile(filepath=filepath, copy=True)
         return {"filepath": filepath, "exists": os.path.exists(filepath)}
     if name == "precision_commit":
+        if _jobs.get(LEGACY_JOB_ID) is not None and _jobs[LEGACY_JOB_ID].state == "active":
+            _commit_job(LEGACY_JOB_ID)
         _transaction_prefix = None
         _transaction_preexisting = set()
         return {"ok": True}
     if name == "precision_abort":
-        removed = 0
-        if _transaction_prefix:
-            for obj in list(bpy.data.objects):
-                if _owned(obj.name, _transaction_prefix) and obj.name not in _transaction_preexisting:
-                    bpy.data.objects.remove(obj, do_unlink=True)
-                    removed += 1
+        job = _jobs.get(LEGACY_JOB_ID)
+        if job is not None and job.state == "active":
+            abort_result = _abort_job(LEGACY_JOB_ID)
+            removed = abort_result["removed_created_objects"]
+            restored = abort_result["restored_checkpoint"]
+        else:
+            removed = 0
+            restored = False
         _transaction_prefix = None
         _transaction_preexisting = set()
-        return {"ok": True, "removed_new_objects": removed, "restored_preexisting_objects": False}
+        return {"ok": True, "removed_new_objects": removed, "restored_preexisting_objects": restored}
     raise ValueError(f"unsupported precision command: {name}")
 
 
-def _handle(client):
+def _recv_exact(client, size):
+    chunks = []
+    remaining = size
+    while remaining:
+        chunk = client.recv(remaining)
+        if not chunk:
+            raise ConnectionError("connection closed before frame completed")
+        chunks.append(chunk)
+        remaining -= len(chunk)
+    return b"".join(chunks)
+
+
+def _send_response(client, payload):
+    body = json.dumps(
+        payload,
+        ensure_ascii=False,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    if len(body) > MAX_FRAME_BYTES:
+        body = json.dumps(
+            {
+                "status": "error",
+                "request_id": payload.get("request_id"),
+                "message": "response exceeds maximum frame size",
+                "error_type": "ProtocolError",
+            },
+            separators=(",", ":"),
+        ).encode("utf-8")
+    client.sendall(struct.pack("!I", len(body)) + body)
+
+
+def _error_payload(request_id, exc):
+    return {
+        "status": "error",
+        "request_id": request_id,
+        "message": str(exc),
+        "error_type": type(exc).__name__,
+    }
+
+
+def _execute_queued(client, request):
     try:
-        data = client.recv(4 * 1024 * 1024)
-        command = json.loads(data.decode("utf-8"))
-        result = execute(command)
-        payload = {"status": "success", "result": result}
+        result = execute(request)
+        payload = {
+            "status": "success",
+            "request_id": request["request_id"],
+            "result": result,
+        }
     except Exception as exc:
         traceback.print_exc()
-        payload = {"status": "error", "message": str(exc)}
-    client.sendall(json.dumps(payload, ensure_ascii=False).encode("utf-8"))
-    client.close()
+        payload = _error_payload(request.get("request_id"), exc)
+    try:
+        _send_response(client, payload)
+    finally:
+        client.close()
+    return None
+
+
+def _handle(client):
+    request_id = None
+    try:
+        frame_size = struct.unpack("!I", _recv_exact(client, 4))[0]
+        if frame_size == 0:
+            raise ValueError("request frame is empty")
+        if frame_size > MAX_FRAME_BYTES:
+            raise ValueError("request exceeds maximum frame size")
+        body = _recv_exact(client, frame_size)
+        request = json.loads(body.decode("utf-8"))
+        if not isinstance(request, dict):
+            raise ValueError("request must be a JSON object")
+        request_id = request.get("request_id")
+        if not isinstance(request_id, str) or not request_id:
+            raise ValueError("request_id must be a non-empty string")
+        if not isinstance(request.get("type"), str):
+            raise ValueError("request type must be a string")
+        if not isinstance(request.get("params", {}), dict):
+            raise ValueError("request params must be a JSON object")
+        bpy.app.timers.register(
+            lambda c=client, r=request: _execute_queued(c, r),
+            first_interval=0.0,
+        )
+    except Exception as exc:
+        traceback.print_exc()
+        try:
+            _send_response(client, _error_payload(request_id, exc))
+        finally:
+            client.close()
 
 
 class PrecisionServer:
@@ -355,7 +585,7 @@ class PrecisionServer:
         while self.running:
             try:
                 client, _ = self.sock.accept()
-                bpy.app.timers.register(lambda c=client: (_handle(c), None)[1], first_interval=0.0)
+                _handle(client)
             except OSError:
                 break
 
