@@ -82,6 +82,22 @@ class PrecisionEvidenceTests(unittest.TestCase):
                         EvidenceBundle(workdir, job_id)
             self.assertFalse((workdir / "evidence").exists())
 
+    def test_bundle_rejects_evidence_symlink_that_escapes_workdir(self):
+        with tempfile.TemporaryDirectory() as directory:
+            parent = Path(directory)
+            workdir = parent / "workdir"
+            outside = parent / "outside"
+            workdir.mkdir()
+            outside.mkdir()
+            try:
+                (workdir / "evidence").symlink_to(outside, target_is_directory=True)
+            except (NotImplementedError, OSError) as error:
+                self.skipTest(f"directory symlinks are unavailable: {error}")
+
+            with self.assertRaisesRegex(ValueError, "evidence root escapes workdir"):
+                EvidenceBundle(workdir, "desk-001")
+            self.assertEqual(list(outside.iterdir()), [])
+
 
 if __name__ == "__main__":
     unittest.main()

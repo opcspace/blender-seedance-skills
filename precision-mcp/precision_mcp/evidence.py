@@ -41,10 +41,24 @@ class EvidenceBundle:
     def __init__(self, workdir: Path, job_id: str):
         if _JOB_ID.fullmatch(job_id) is None:
             raise ValueError(f"invalid job_id: {job_id!r}")
-        self.root = workdir.resolve() / "evidence" / job_id
+        self._workdir = workdir.resolve()
+        self._evidence_parent = self._workdir / "evidence"
+        self.root = self._evidence_parent / job_id
+        self._ensure_evidence_root_contained()
         self.root.mkdir(parents=True, exist_ok=True)
 
+    def _ensure_within_workdir(self, path: Path) -> None:
+        try:
+            path.resolve().relative_to(self._workdir)
+        except ValueError as error:
+            raise ValueError(f"evidence root escapes workdir: {path}") from error
+
+    def _ensure_evidence_root_contained(self) -> None:
+        self._ensure_within_workdir(self._evidence_parent)
+        self._ensure_within_workdir(self.root)
+
     def _contained_path(self, *parts: str) -> Path:
+        self._ensure_evidence_root_contained()
         path = self.root.joinpath(*parts)
         resolved_root = self.root.resolve()
         resolved_path = path.resolve()
