@@ -164,8 +164,7 @@ class FakeBridge:
 
 class PrecisionServerV2Tests(unittest.TestCase):
     def setUp(self):
-        server._job_states.clear()
-        server._qa_reports.clear()
+        server._job_records.clear()
 
     def _context(self, fake, directory):
         return (
@@ -173,23 +172,42 @@ class PrecisionServerV2Tests(unittest.TestCase):
             patch.object(server, "WORKDIR", Path(directory).resolve()),
         )
 
-    def _prepare(self, fake, directory):
+    def _prepare(
+        self,
+        fake,
+        directory,
+        *,
+        scene=None,
+        manifest=None,
+        cad_available=False,
+    ):
         bridge_patch, workdir_patch = self._context(fake, directory)
         with bridge_patch, workdir_patch:
             return json.loads(
                 server.precision_prepare_job(
-                    copy.deepcopy(SCENE), copy.deepcopy(MANIFEST)
+                    copy.deepcopy(scene or SCENE),
+                    copy.deepcopy(manifest or MANIFEST),
+                    cad_available=cad_available,
                 )
             )
 
-    def _validate(self, fake, directory, assumptions=None):
+    def _validate(
+        self,
+        fake,
+        directory,
+        assumptions=None,
+        *,
+        scene=None,
+        manifest=None,
+        checkpoint_exists=True,
+    ):
         bridge_patch, workdir_patch = self._context(fake, directory)
         with bridge_patch, workdir_patch:
             return json.loads(
                 server.precision_validate_job(
-                    copy.deepcopy(SCENE),
-                    copy.deepcopy(MANIFEST),
-                    checkpoint_exists=True,
+                    copy.deepcopy(scene or SCENE),
+                    copy.deepcopy(manifest or MANIFEST),
+                    checkpoint_exists=checkpoint_exists,
                     assumptions=assumptions,
                 )
             )
@@ -226,7 +244,73 @@ class PrecisionServerV2Tests(unittest.TestCase):
                     )
                 ],
             )
-            self.assertEqual(server._job_states[JOB_ID].value, "active")
+            record = server._job_records[JOB_ID]
+            self.assertEqual(record.state.value, "active")
+            self.assertEqual(record.plan_status, "eligible")
+            self.assertEqual(len(record.scene_digest), 64)
+            self.assertEqual(len(record.manifest_digest), 64)
+            self.assertEqual(len(record.plan_digest), 64)
+
+    def test_prepare_rejects_duplicate_active_job_before_second_begin(self):
+        fake = FakeBridge()
+        with tempfile.TemporaryDirectory() as directory:
+            self._prepare(fake, directory)
+            with self.assertRaisesRegex(ValueError, "already active"):
+                self._prepare(fake, directory)
+            self.assertEqual(
+                [command for command, _ in fake.calls], ["precision_begin_job"]
+            )
+
+    def test_blocked_cad_and_tripo_plans_persist_without_begin_and_reject_execution(self):
+        for source, expected_tool in (
+            ("cad_sketcher", "backend_unavailable"),
+            ("tripo", "external_pending"),
+        ):
+            with self.subTest(source=source), tempfile.TemporaryDirectory() as directory:
+                fake = FakeBridge()
+                manifest = copy.deepcopy(MANIFEST)
+                manifest["assets"][0]["source"] = source
+                plan = self._prepare(fake, directory, manifest=manifest)
+
+                self.assertEqual(plan["steps"][0]["tool"], expected_tool)
+                self.assertEqual(fake.calls, [])
+                record = server._job_records[JOB_ID]
+                self.assertEqual(record.plan_status, "blocked")
+                self.assertEqual(record.state.value, "planned")
+                bundle = Path(directory).resolve() / "evidence" / JOB_ID
+                self.assertTrue((bundle / "scene_spec.json").is_file())
+                self.assertTrue((bundle / "asset_manifest.json").is_file())
+                self.assertTrue((bundle / "operation_plan.json").is_file())
+
+                bridge_patch, workdir_patch = self._context(fake, directory)
+                with bridge_patch, workdir_patch:
+                    with self.assertRaisesRegex(ValueError, "blocked"):
+                        server.precision_create_part(
+                            JOB_ID, "desk", "cube", [1.0, 1.0, 1.0]
+                        )
+                    with self.assertRaisesRegex(ValueError, "blocked"):
+                        server.precision_validate_job(SCENE, manifest)
+                    with self.assertRaisesRegex(ValueError, "blocked"):
+                        server.precision_finalize_job(SCENE, manifest)
+                self.assertEqual(fake.calls, [])
+                server._job_records.clear()
+
+    def test_blocked_job_can_be_reprepared_with_locally_eligible_manifest(self):
+        fake = FakeBridge()
+        blocked = copy.deepcopy(MANIFEST)
+        blocked["assets"][0]["source"] = "tripo"
+        eligible = copy.deepcopy(MANIFEST)
+        eligible["assets"][0]["source"] = "imported"
+        with tempfile.TemporaryDirectory() as directory:
+            self._prepare(fake, directory, manifest=blocked)
+            plan = self._prepare(fake, directory, manifest=eligible)
+            self.assertEqual(plan["steps"][0]["tool"], "precision_import_asset")
+            self.assertEqual(
+                [command for command, _ in fake.calls], ["precision_begin_job"]
+            )
+            self.assertEqual(
+                server._job_records[JOB_ID].plan_status, "eligible"
+            )
 
     def test_prepare_rejects_mismatched_job_ids_before_bridge_call(self):
         fake = FakeBridge()
@@ -243,6 +327,8 @@ class PrecisionServerV2Tests(unittest.TestCase):
     def test_typed_wrappers_require_job_id_and_forward_exact_commands_and_params(self):
         fake = FakeBridge()
         with tempfile.TemporaryDirectory() as directory:
+            self._prepare(fake, directory)
+            fake.calls.clear()
             bridge_patch, workdir_patch = self._context(fake, directory)
             with bridge_patch, workdir_patch:
                 cases = [
@@ -400,7 +486,9 @@ class PrecisionServerV2Tests(unittest.TestCase):
             self.assertEqual(report["assumptions"], [])
             self.assertEqual(report["artifacts"], [])
             self.assertIs(validate_document("qa_report", report), report)
-            self.assertEqual(server._job_states[JOB_ID].value, "validating")
+            record = server._job_records[JOB_ID]
+            self.assertEqual(record.state.value, "validating")
+            self.assertEqual(len(record.qa_report_digest), 64)
 
             args = derive.call_args.args
             kwargs = derive.call_args.kwargs
@@ -435,7 +523,9 @@ class PrecisionServerV2Tests(unittest.TestCase):
                 "missing Blender measurement: leg-anchor-distance",
                 report["reasons"],
             )
-            self.assertEqual(server._job_states[JOB_ID].value, "failed_qa")
+            self.assertEqual(
+                server._job_records[JOB_ID].state.value, "failed_qa"
+            )
             self.assertIs(validate_document("qa_report", report), report)
 
     def test_unresolved_assumptions_prevent_l2(self):
@@ -445,7 +535,60 @@ class PrecisionServerV2Tests(unittest.TestCase):
             report = self._validate(fake, directory, assumptions=["rear unseen"])
             self.assertEqual(report["final_grade"], "L1")
             self.assertIn("unresolved assumptions remain", report["reasons"])
-            self.assertEqual(server._job_states[JOB_ID].value, "failed_qa")
+            self.assertEqual(
+                server._job_records[JOB_ID].state.value, "failed_qa"
+            )
+
+    def test_validate_rejects_unprepared_job_before_bridge_call(self):
+        fake = FakeBridge()
+        with tempfile.TemporaryDirectory() as directory:
+            bridge_patch, workdir_patch = self._context(fake, directory)
+            with bridge_patch, workdir_patch, self.assertRaisesRegex(
+                ValueError, "not prepared"
+            ):
+                server.precision_validate_job(SCENE, MANIFEST)
+        self.assertEqual(fake.calls, [])
+
+    def test_checkpoint_argument_cannot_bypass_missing_prepared_checkpoint(self):
+        fake = FakeBridge()
+        with tempfile.TemporaryDirectory() as directory:
+            self._prepare(fake, directory)
+            checkpoint = (
+                Path(directory).resolve()
+                / "evidence"
+                / JOB_ID
+                / "checkpoints"
+                / "before.blend"
+            )
+            checkpoint.unlink()
+            report = self._validate(
+                fake, directory, checkpoint_exists=True
+            )
+            self.assertFalse(report["checkpoint"])
+            self.assertNotEqual(report["final_grade"], "L2")
+            self.assertIn("final checkpoint missing", report["reasons"])
+
+    def test_validate_rejects_same_id_altered_scene_or_manifest(self):
+        for changed_document in ("scene", "manifest"):
+            with self.subTest(changed_document=changed_document), tempfile.TemporaryDirectory() as directory:
+                fake = FakeBridge()
+                self._prepare(fake, directory)
+                fake.calls.clear()
+                scene = copy.deepcopy(SCENE)
+                manifest = copy.deepcopy(MANIFEST)
+                if changed_document == "scene":
+                    scene["measurements"][0]["target"] += 1.0
+                else:
+                    manifest["assets"][0]["location"][0] += 1.0
+                with self.assertRaisesRegex(ValueError, "prepared contracts"):
+                    self._validate(
+                        fake,
+                        directory,
+                        scene=scene,
+                        manifest=manifest,
+                    )
+                self.assertEqual(fake.calls, [])
+                server._job_records.clear()
 
     def test_finalize_passing_qa_writes_checksummed_artifacts_then_commits(self):
         fake = FakeBridge()
@@ -498,7 +641,9 @@ class PrecisionServerV2Tests(unittest.TestCase):
                     ),
                 ],
             )
-            self.assertEqual(server._job_states[JOB_ID].value, "committed")
+            self.assertEqual(
+                server._job_records[JOB_ID].state.value, "committed"
+            )
             self.assertEqual(report["final_grade"], "L2")
             self.assertEqual(
                 [item["path"] for item in report["artifacts"]],
@@ -557,8 +702,38 @@ class PrecisionServerV2Tests(unittest.TestCase):
             )
             self.assertTrue(failed_path.is_file())
             self.assertNotEqual(report["final_grade"], "L2")
-            self.assertEqual(server._job_states[JOB_ID].value, "failed_qa")
+            self.assertEqual(
+                server._job_records[JOB_ID].state.value, "failed_qa"
+            )
             self.assertIs(validate_document("qa_report", report), report)
+
+    def test_finalize_rejects_changed_contracts_and_tampered_bound_report(self):
+        fake = FakeBridge()
+        with tempfile.TemporaryDirectory() as directory:
+            self._prepare(fake, directory)
+            self._validate(fake, directory)
+            fake.calls.clear()
+            bridge_patch, workdir_patch = self._context(fake, directory)
+            with bridge_patch, workdir_patch:
+                changed_scene = copy.deepcopy(SCENE)
+                changed_scene["measurements"][0]["target"] += 1.0
+                changed_manifest = copy.deepcopy(MANIFEST)
+                changed_manifest["assets"][0]["location"][0] += 1.0
+                for scene, manifest in (
+                    (changed_scene, MANIFEST),
+                    (SCENE, changed_manifest),
+                ):
+                    with self.assertRaisesRegex(
+                        ValueError, "prepared contracts"
+                    ):
+                        server.precision_finalize_job(scene, manifest)
+                record = server._job_records[JOB_ID]
+                record.qa_report["reasons"].append("tampered")
+                with self.assertRaisesRegex(ValueError, "QA report binding"):
+                    server.precision_finalize_job(SCENE, MANIFEST)
+            self.assertNotIn(
+                "precision_commit_job", [command for command, _ in fake.calls]
+            )
 
     def test_server_contains_no_production_scene_or_manifest_fixtures(self):
         source = Path(server.__file__).read_text(encoding="utf-8")

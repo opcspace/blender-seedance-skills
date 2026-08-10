@@ -1,6 +1,8 @@
+import hashlib
 import json
 import os
 import re
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -20,8 +22,24 @@ bridge = BlenderBridge(HOST, PORT)
 mcp = FastMCP("BlenderPrecisionMCP")
 _JOB_ID = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}$")
 _GRADE_RANK = {"L0": 0, "L1": 1, "L2": 2}
-_job_states: dict[str, JobState] = {}
-_qa_reports: dict[str, dict[str, Any]] = {}
+_BLOCKED_TOOLS = {"backend_unavailable", "external_pending"}
+
+
+@dataclass
+class JobRecord:
+    state: JobState
+    scene_digest: str
+    manifest_digest: str
+    plan_digest: str
+    plan_status: str
+    begin_checkpoint: str | None
+    qa_report: dict[str, Any] | None = None
+    qa_report_digest: str | None = None
+    qa_scene_digest: str | None = None
+    qa_manifest_digest: str | None = None
+
+
+_job_records: dict[str, JobRecord] = {}
 
 
 def _call(name: str, params: dict[str, Any] | None = None) -> str:
@@ -32,15 +50,61 @@ def _json(document: Any) -> str:
     return json.dumps(document, ensure_ascii=False, indent=2)
 
 
+def _document_digest(document: dict[str, Any]) -> str:
+    encoded = json.dumps(
+        document,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _document_snapshot(document: dict[str, Any]) -> dict[str, Any]:
+    return json.loads(json.dumps(document, ensure_ascii=False))
+
+
 def _require_job_id(job_id: str) -> str:
     if not isinstance(job_id, str) or _JOB_ID.fullmatch(job_id) is None:
         raise ValueError("job_id must match ^[a-z0-9][a-z0-9-]{0,63}$")
     return job_id
 
 
-def _typed_call(command: str, job_id: str, params: dict[str, Any]) -> str:
+def _require_eligible_record(
+    job_id: str, allowed_states: set[str]
+) -> JobRecord:
     validated_job_id = _require_job_id(job_id)
-    return _call(command, {"job_id": validated_job_id, **params})
+    record = _job_records.get(validated_job_id)
+    if record is None:
+        raise ValueError(f"job is not prepared: {validated_job_id}")
+    if record.plan_status != "eligible":
+        raise ValueError(f"job plan is blocked: {validated_job_id}")
+    if record.state.value not in allowed_states:
+        allowed = ", ".join(sorted(allowed_states))
+        raise ValueError(
+            f"job state is {record.state.value}; expected one of: {allowed}"
+        )
+    return record
+
+
+def _require_matching_contracts(
+    job_id: str,
+    scene_spec: dict[str, Any],
+    asset_manifest: dict[str, Any],
+    allowed_states: set[str],
+) -> JobRecord:
+    record = _require_eligible_record(job_id, allowed_states)
+    if (
+        _document_digest(scene_spec) != record.scene_digest
+        or _document_digest(asset_manifest) != record.manifest_digest
+    ):
+        raise ValueError("supplied contracts do not match prepared contracts")
+    return record
+
+
+def _typed_call(command: str, job_id: str, params: dict[str, Any]) -> str:
+    _require_eligible_record(job_id, {"active", "validating"})
+    return _call(command, {"job_id": job_id, **params})
 
 
 def _validated_inputs(
@@ -52,19 +116,11 @@ def _validated_inputs(
     return job_id
 
 
-def _state_for_validation(job_id: str) -> JobState:
-    state = _job_states.get(job_id)
-    if state is None:
-        state = JobState(job_id)
-        _job_states[job_id] = state
-    if state.value == "planned":
+def _state_for_validation(record: JobRecord) -> JobState:
+    state = record.state
+    if state.value == "failed_qa":
         state.transition("active")
-    elif state.value == "failed_qa":
-        state.transition("active")
-    if state.value == "active":
-        state.transition("validating")
-    elif state.value != "validating":
-        raise ValueError(f"job cannot be validated from state: {state.value}")
+    state.transition("validating")
     return state
 
 
@@ -104,23 +160,53 @@ def precision_prepare_job(
 ) -> str:
     """Validate V2 contracts, persist a deterministic plan and begin a job."""
     job_id = _validated_inputs(scene_spec, asset_manifest)
+    existing = _job_records.get(job_id)
+    if existing is not None and not (
+        existing.plan_status == "blocked" and existing.state.value == "planned"
+    ):
+        if existing.state.value in {"active", "validating"}:
+            raise ValueError(f"job is already active: {job_id}")
+        raise ValueError(
+            f"job cannot be prepared from state: {existing.state.value}"
+        )
     plan = build_plan(scene_spec, asset_manifest, bool(cad_available))
     validate_document("operation_plan", plan, expected_job_id=job_id)
+    scene_digest = _document_digest(scene_spec)
+    manifest_digest = _document_digest(asset_manifest)
+    plan_digest = _document_digest(plan)
+    blocked = any(step["tool"] in _BLOCKED_TOOLS for step in plan["steps"])
+    plan_status = "blocked" if blocked else "eligible"
 
     bundle = EvidenceBundle(WORKDIR, job_id)
     bundle.write_contract("scene_spec", scene_spec)
     bundle.write_contract("asset_manifest", asset_manifest)
     bundle.write_contract("operation_plan", plan)
     checkpoint = bundle.checkpoint_path("before")
+    state = JobState(job_id)
+    if blocked:
+        _job_records[job_id] = JobRecord(
+            state=state,
+            scene_digest=scene_digest,
+            manifest_digest=manifest_digest,
+            plan_digest=plan_digest,
+            plan_status=plan_status,
+            begin_checkpoint=None,
+        )
+        return _json(plan)
+
     bridge.call(
         "precision_begin_job",
         {"job_id": job_id, "checkpoint": str(checkpoint)},
     )
-
-    state = JobState(job_id)
     state.transition("active")
-    _job_states[job_id] = state
-    _qa_reports.pop(job_id, None)
+    _job_records[job_id] = JobRecord(
+        state=state,
+        scene_digest=scene_digest,
+        manifest_digest=manifest_digest,
+        plan_digest=plan_digest,
+        plan_status=plan_status,
+        begin_checkpoint=str(checkpoint),
+    )
     return _json(plan)
 
 
@@ -322,13 +408,25 @@ def precision_inspect_job(
 def precision_validate_job(
     scene_spec: dict[str, Any],
     asset_manifest: dict[str, Any],
-    checkpoint_exists: bool,
+    checkpoint_exists: bool | None = None,
     assumptions: list[str] | None = None,
 ) -> str:
-    """Evaluate Blender raw measurements and persist a schema-valid V2 QA report."""
+    """Evaluate V2 QA; deprecated checkpoint_exists is ignored for safety."""
     job_id = _validated_inputs(scene_spec, asset_manifest)
+    record = _require_matching_contracts(
+        job_id,
+        scene_spec,
+        asset_manifest,
+        {"active", "failed_qa"},
+    )
     unresolved = list(assumptions or [])
-    state = _state_for_validation(job_id)
+    state = _state_for_validation(record)
+    bundle = EvidenceBundle(WORKDIR, job_id)
+    before_checkpoint = bundle.checkpoint_path("before")
+    checkpoint_ok = (
+        record.begin_checkpoint == str(before_checkpoint)
+        and before_checkpoint.is_file()
+    )
     inspection = bridge.call(
         "precision_inspect_job",
         {"job_id": job_id, "measurements": scene_spec["measurements"]},
@@ -354,7 +452,7 @@ def precision_validate_job(
         bool(scene_spec["reference_calibrated"]),
         evaluated,
         bool(inspection.get("geometry_ok", False)),
-        bool(checkpoint_exists),
+        checkpoint_ok,
         bool(inspection.get("provenance_ok", False)),
         assumptions_ok=len(unresolved) == 0,
     )
@@ -365,17 +463,19 @@ def precision_validate_job(
         "assertions": [_report_assertion(item) for item in evaluated],
         "geometry": bool(inspection.get("geometry_ok", False)),
         "provenance": bool(inspection.get("provenance_ok", False)),
-        "checkpoint": bool(checkpoint_exists),
+        "checkpoint": checkpoint_ok,
         "reasons": reasons,
         "assumptions": unresolved,
         "artifacts": [],
         "final_grade": grade["grade"],
     }
     validate_document("qa_report", report, expected_job_id=job_id)
-    bundle = EvidenceBundle(WORKDIR, job_id)
     bundle.write_contract("qa_report", report)
     bundle.write_assumptions(unresolved)
-    _qa_reports[job_id] = report
+    record.qa_report = _document_snapshot(report)
+    record.qa_report_digest = _document_digest(record.qa_report)
+    record.qa_scene_digest = record.scene_digest
+    record.qa_manifest_digest = record.manifest_digest
 
     failed_required = any(
         assertion["required"] and not assertion["passed"]
@@ -395,14 +495,23 @@ def precision_finalize_job(
 ) -> str:
     """Finalize current V2 QA evidence, committing only a strict passing L2 job."""
     job_id = _validated_inputs(scene_spec, asset_manifest)
-    report = _qa_reports.get(job_id)
-    if report is None:
+    record = _require_matching_contracts(
+        job_id,
+        scene_spec,
+        asset_manifest,
+        {"validating", "failed_qa"},
+    )
+    if record.qa_report is None or record.qa_report_digest is None:
         raise ValueError("job has no validated QA report")
-    report = json.loads(json.dumps(report))
+    if (
+        record.qa_scene_digest != record.scene_digest
+        or record.qa_manifest_digest != record.manifest_digest
+        or _document_digest(record.qa_report) != record.qa_report_digest
+    ):
+        raise ValueError("QA report binding does not match prepared evidence")
+    report = _document_snapshot(record.qa_report)
     validate_document("qa_report", report, expected_job_id=job_id)
-    state = _job_states.get(job_id)
-    if state is None:
-        raise ValueError("job has no state")
+    state = record.state
     bundle = EvidenceBundle(WORKDIR, job_id)
     failed_required = any(
         assertion["required"] and not assertion["passed"]
@@ -423,7 +532,8 @@ def precision_finalize_job(
             _replace_artifact(report, bundle, failed_path)
         validate_document("qa_report", report, expected_job_id=job_id)
         bundle.write_contract("qa_report", report)
-        _qa_reports[job_id] = report
+        record.qa_report = _document_snapshot(report)
+        record.qa_report_digest = _document_digest(record.qa_report)
         return _json(report)
 
     if state.value != "validating":
@@ -462,7 +572,8 @@ def precision_finalize_job(
         {"job_id": job_id, "filepath": str(final_path)},
     )
     state.transition("committed")
-    _qa_reports[job_id] = report
+    record.qa_report = _document_snapshot(report)
+    record.qa_report_digest = _document_digest(record.qa_report)
     return _json(report)
 
 
