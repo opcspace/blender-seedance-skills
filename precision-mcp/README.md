@@ -1,72 +1,63 @@
-# Precision MCP for Blender
+# Precision Core V2 for Blender
 
-一个面向高精度白模和 Seedance 参考镜头的本地 Blender MCP companion。
+Precision Core V2 是本地 FastMCP companion，用校准合同、确定性操作计划、Blender 白名单命令和可审计证据支持尺寸驱动白模。它与现有 `127.0.0.1:8400` Blender MCP 并行，不提供任意 Python 执行，也不内置联网资产服务。
 
-它参考 [MCPBlender/blender-mcp](https://github.com/MCPBlender/blender-mcp) 的
-MCP + socket bridge 结构，但不直接启用上游的任意 Python 执行工具，也不包含上游的
-遥测、Poly Haven、Sketchfab、Hyper3D 或 Hunyuan3D 网络集成。
+## 安装与启动
 
-## 目标
-
-- 用 `model_spec` 描述尺寸、比例、部件和约束，而不是把最终尺寸误当成 primitive scale。
-- 用 Blender 原生网格生成和检查保证尺寸、原点、地面、法线、非流形和相机占幅可验证。
-- 为 CAD Sketcher 保留可选适配点；只有收到约束求解报告时，才允许 Skill 宣称 CAD 级精度。
-- 支持七类 BaseMesh：角色、生物、道具、建筑、硬表面机械、环境地形、抽象形体。
-- 通过白模渲染工具生成可交给 Jimeng/Seedance 的参考图；上传和最终生成仍属于外部服务交接。
-
-## 安全边界
-
-默认没有 `execute_blender_code`。所有命令都经过固定的 command allow-list，文件路径只允许写入
-显式配置的工作目录。外部 API、图片上传、账号登录和 Jimeng 点击不在这个 MCP 的默认权限内。
-
-## 当前状态
-
-这是第一阶段 companion MVP，先与现有 Blender MCP 并行运行，不覆盖现有插件。安装前请确认：
-
-1. Blender 5.2 LTS 已安装并可启动。
-2. 当前 Blender MCP 仍使用 `127.0.0.1:8400`。
-3. 本 precision addon 使用独立端口 `127.0.0.1:9877`。
-4. `uv` 或 Python 3.10+ 可用。
-
-仓库 CI 会验证规格测试、Python 编译和 JSON Schema；CI 不会伪造 Blender 图形运行结果。
-真实 addon/MCP 集成必须在能够启动 Blender GUI 的 runner 上单独验收。
-
-安装 `blender_addon/precision_addon.py` 后，在 Blender 的 Add-ons 中启用它；然后运行：
+要求 Python 3.10+；真实运行另需 Blender 5.2、已启用的 `blender_addon/precision_addon.py`，以及可写的本地工作目录。
 
 ```bash
-cd precision-mcp
-uv run --with "mcp>=1.3,<2" --with "httpx>=0.24" python -m precision_mcp.server
-```
-
-也可以设置：
-
-```bash
+python -m pip install "mcp>=1.3,<2" "httpx>=0.24" "jsonschema>=4.23,<5"
+export PYTHONPATH="$PWD/precision-mcp"
+export PRECISION_WORKDIR="$PWD/tests/assets/precision_v2"
 export PRECISION_BLENDER_HOST=127.0.0.1
 export PRECISION_BLENDER_PORT=9877
-export PRECISION_WORKDIR=/absolute/path/to/your/blender/project
+python -m precision_mcp.server
 ```
 
-## 工具路线
+FastMCP 使用 stdio 与客户端通信；companion 每次调用新建一个到 add-on 的连接，并使用四字节长度前缀、JSON payload 和 `request_id` 关联的 framed transport。不要把 9877 端口当成 V2 客户端 API，也不要用旧的 raw-socket 脚本作为 V2 证明。
 
-1. `precision_begin`：建立本次建模事务；默认不删除已有对象，只有显式传入 `clean_existing=true` 才清理前缀对象。MVP 运行前仍建议由上层 Skill 写入 `.blend` 检查点。
-2. `precision_create_mesh` / `precision_create_primitive`：按显式网格或原生参数体生成命名对象，并写入目标尺寸。
-3. `precision_cad_status`：报告 CAD Sketcher 和 solver 是否真的在当前 Blender 会话中启用。
-4. `precision_set_dimensions`：按世界尺寸修正对象，避免 scale 语义混乱。
-5. `precision_inspect_geometry` / `precision_validate_scene`：返回尺寸、包围盒、拓扑和接地 QA。
-6. `precision_frame_camera`：按对象包围盒和目标占幅自动构图。
-7. `precision_save_checkpoint`：在工作目录内写入 `.blend` 检查点。
-8. `precision_render_white_model`：使用 Workbench 白模渲染预览。
-9. `precision_commit` / `precision_abort`：提交事务或删除本事务新建对象；已有对象不会被 Abort 自动恢复，跨文件恢复仍依赖检查点。
+`PRECISION_WORKDIR` 是文件与证据边界。每个安全的 `job_id` 写入：
 
-上层 Skill 先把自然语言或参考图整理成 `schemas/model_spec.schema.json`，再用
-`precision_mcp.spec.validate_spec` 检查规格。七类资产共享同一份尺寸/容差协议；角色和生物的
-外形仍属于参考推断，只有测量数据、扫描或人工校正提供的尺寸才可以进入严格精度验收。
+```text
+evidence/<job-id>/
+  scene_spec.json
+  asset_manifest.json
+  operation_plan.json
+  assumptions.md
+  qa_report.json
+  checkpoints/{before,failed,final}.blend
+  previews/{orthographic,perspective}.png
+```
 
-后续阶段会增加 `precision_create_sketch`、`precision_add_constraint` 和
-`precision_solver_report`，对接 CAD Sketcher；这部分不会把 GPL-3.0 的 CAD Sketcher 源码复制进本 MIT 仓库。
+路径和符号链接不得逃出已解析的工作目录。
+
+## V2 工作流
+
+1. 用 `scene_spec.schema.json` 和 `asset_manifest.schema.json` 声明校准状态、绝对容差、资产来源、显式变换和锚点。
+2. `precision_prepare_job` 校验合同并生成稳定排序的 typed operation plan。被阻塞的 CAD/外部步骤只保存计划，不启动 Blender 事务。
+3. 按计划调用 `precision_create_part`、`precision_profile_extrude`、`precision_import_asset`、`precision_normalize_asset`、`precision_set_transform`、`precision_align_anchors` 或 `precision_patch_feature`。每个调用都必须携带 `job_id`。
+4. `precision_validate_job` 把 Blender 的原始测量值与 SceneSpec 目标按绝对容差比较，写入 `qa_report.json`。
+5. 只有合格报告才能由 `precision_finalize_job` 生成两个预览、checksummed final `.blend` 并提交。失败的 required assertion 写 `failed.blend`，且不得 commit。
+
+## 适配器状态
+
+- Blender：phase one 本地执行后端，可用性仍取决于真实 Blender/add-on runtime。
+- CAD Sketcher：只接受 runtime 注入的检测状态；没有 solver/extension 报告时不会猜测可用，也不会静默回退。
+- Tripo、Seedance：phase one online integration deferred。它们不是已安装集成；Tripo visual shell 计划标记 `external_pending`，Seedance 只能消费下游预览。
+
+## 分级边界
+
+- **L0**：未校准、缺门、视觉推断或 required 测量失败。
+- **L1**：global envelope、每个 primary dimension、contact 和 anchor 四类门均有证据且全部通过。
+- **L2**：在 L1 上，所有 required assertions、geometry、checkpoint、provenance 全部通过，且无 unresolved assumptions。
+
+精度等级只来自最终 `qa_report.json`。商业 L2 交付还必须包含报告中记录且 SHA-256 匹配的最终 `.blend` 和预览。未运行的 GUI 验收、联网 visual shell 或未校准参考不能支持 L2。
+
+## 验证边界
+
+仓库 CI 安装 Python 依赖、运行全部 `test_precision_*.py`、编译 core/adapters/add-on、解析 JSON Schema 并验证六个 Skills；CI 不启动图形 Blender。真实 MCP-to-Blender 验收命令和当前状态记录在 `tests/PRECISION_MCP.md`。当 Blender executable/runtime 不可用时，状态必须保持 `BLOCKED`，不能用 portable PASS 替代。
 
 ## 许可
 
-本 companion 代码采用 MIT License，与父仓库一致。上游 MCPBlender/blender-mcp 也标注为 MIT，
-但其代码、条款和数据政策仍应以其仓库当前版本为准。CAD Sketcher、Blender、Jimeng、Seedance
-及其它第三方服务分别受其自身许可证和服务条款约束。
+本 companion 采用 MIT License。CAD Sketcher、Blender、Jimeng/Dreamina/Seedance 及其它第三方项目仍受各自许可证和服务条款约束；本仓库不 vendoring CAD Sketcher、联网服务或第三方二进制。

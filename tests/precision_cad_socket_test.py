@@ -1,5 +1,11 @@
+"""Legacy CAD direct-socket diagnostic; this is not Precision Core V2 proof."""
+
 import json
 import socket
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def call(command, params=None):

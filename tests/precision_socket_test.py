@@ -1,10 +1,10 @@
-"""Black-box test for the running GUI precision addon."""
+"""Legacy direct-socket diagnostic; this is not Precision Core V2 proof."""
 import json
 import socket
 from pathlib import Path
 
 
-ROOT = Path("/Users/jiangye/project/blender/blender-seedance-skills-repo")
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def call(command, params=None):
