@@ -21,3 +21,4 @@ tokens/
 !tests/assets/*/
 !tests/assets/*/*.png
 !tests/assets/*/*.blend
+.worktrees/
