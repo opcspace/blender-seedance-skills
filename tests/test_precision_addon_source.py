@@ -50,6 +50,36 @@ class PrecisionAddonSourceTests(unittest.TestCase):
         }
         self.assertNotIn("execute", called_names)
 
+    def test_addon_defines_v2_creation_and_import_commands(self):
+        for command in (
+            "precision_create_part",
+            "precision_import_asset",
+            "precision_normalize_asset",
+            "precision_profile_extrude",
+        ):
+            self.assertIn(command, self.source)
+
+    def test_import_and_normalization_are_explicit_and_job_scoped(self):
+        for marker in (
+            "UNIT_TO_METERS",
+            "source_units",
+            "target_units",
+            "source_up_axis",
+            "scaling_mode",
+            "provenance",
+            "checksum",
+            "bpy.ops.import_scene.gltf",
+            "bpy.ops.wm.fbx_import",
+            "bpy.ops.import_scene.fbx",
+            "_safe_work_path",
+            "_track_created",
+        ):
+            self.assertIn(marker, self.source)
+
+    def test_profile_extrusion_rejects_self_intersections(self):
+        self.assertIn("_validate_simple_polygon", self.source)
+        self.assertIn("self-intersecting", self.source)
+
 
 if __name__ == "__main__":
     unittest.main()

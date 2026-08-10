@@ -7,6 +7,7 @@ bl_info = {
 }
 
 import json
+import hashlib
 import importlib
 import math
 import os
@@ -29,6 +30,8 @@ WORKDIR = os.path.realpath(
 )
 JOB_ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}$")
 LEGACY_JOB_ID = "legacy-v1"
+UNIT_TO_METERS = {"mm": 0.001, "cm": 0.01, "m": 1.0}
+ASSET_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
 _server = None
 _transaction_prefix = None
 _transaction_preexisting = set()
@@ -153,6 +156,172 @@ def _track_legacy_created(obj):
         _track_created(job, obj)
 
 
+def _validate_asset_id(asset_id):
+    if not isinstance(asset_id, str) or ASSET_ID_RE.fullmatch(asset_id) is None:
+        raise ValueError("asset_id contains unsupported characters")
+    return asset_id
+
+
+def _job_object_name(job, asset_id, suffix=None):
+    asset_id = _validate_asset_id(asset_id)
+    base = f"{job.prefix}{asset_id}"
+    return f"{base}_{suffix}" if suffix else base
+
+
+def _require_job_object(job, name):
+    obj = _require_object(name)
+    if name not in job.created_objects or obj.get("precision_job_id") != job.job_id:
+        raise ValueError(f"object is not owned by job {job.job_id}: {name}")
+    return obj
+
+
+def _tag_job_object(job, obj, asset_id):
+    obj["precision_job_id"] = job.job_id
+    obj["precision_asset_id"] = asset_id
+    _track_created(job, obj)
+
+
+def _create_exact_primitive(name, primitive, dimensions, location):
+    primitive = str(primitive).lower()
+    if bpy.data.objects.get(name) is not None:
+        raise ValueError(f"object already exists: {name}")
+    if primitive == "cube":
+        bpy.ops.mesh.primitive_cube_add(size=1.0, location=location)
+    elif primitive == "cylinder":
+        bpy.ops.mesh.primitive_cylinder_add(
+            vertices=64, radius=0.5, depth=1.0, location=location
+        )
+    elif primitive == "cone":
+        bpy.ops.mesh.primitive_cone_add(
+            vertices=64, radius1=0.5, radius2=0.0, depth=1.0, location=location
+        )
+    elif primitive == "uv_sphere":
+        bpy.ops.mesh.primitive_uv_sphere_add(
+            segments=64, ring_count=32, radius=0.5, location=location
+        )
+    else:
+        raise ValueError("primitive must be cube, cylinder, cone or uv_sphere")
+    obj = bpy.context.object
+    obj.name = name
+    _set_dimensions(obj, dimensions)
+    return obj
+
+
+def _orientation(a, b, c):
+    value = (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (
+        c[0] - a[0]
+    )
+    if abs(value) <= 1e-12:
+        return 0
+    return 1 if value > 0 else -1
+
+
+def _point_on_segment(a, b, point):
+    return (
+        min(a[0], b[0]) - 1e-12 <= point[0] <= max(a[0], b[0]) + 1e-12
+        and min(a[1], b[1]) - 1e-12
+        <= point[1]
+        <= max(a[1], b[1]) + 1e-12
+    )
+
+
+def _segments_intersect(a, b, c, d):
+    orientations = (
+        _orientation(a, b, c),
+        _orientation(a, b, d),
+        _orientation(c, d, a),
+        _orientation(c, d, b),
+    )
+    if orientations[0] != orientations[1] and orientations[2] != orientations[3]:
+        return True
+    return any(
+        orientation == 0 and _point_on_segment(start, end, point)
+        for orientation, start, end, point in (
+            (orientations[0], a, b, c),
+            (orientations[1], a, b, d),
+            (orientations[2], c, d, a),
+            (orientations[3], c, d, b),
+        )
+    )
+
+
+def _validate_simple_polygon(points):
+    if not isinstance(points, list) or len(points) < 3:
+        raise ValueError("profile must contain at least three 2D points")
+    result = []
+    for index, point in enumerate(points):
+        if not isinstance(point, (list, tuple)) or len(point) != 2:
+            raise ValueError(f"profile point {index} must contain X and Y")
+        parsed = (float(point[0]), float(point[1]))
+        if not all(math.isfinite(value) for value in parsed):
+            raise ValueError(f"profile point {index} must be finite")
+        result.append(parsed)
+    if len(set(result)) != len(result):
+        raise ValueError("profile is self-intersecting or contains repeated points")
+    count = len(result)
+    for first in range(count):
+        first_next = (first + 1) % count
+        for second in range(first + 1, count):
+            second_next = (second + 1) % count
+            if first in (second, second_next) or first_next in (second, second_next):
+                continue
+            if _segments_intersect(
+                result[first],
+                result[first_next],
+                result[second],
+                result[second_next],
+            ):
+                raise ValueError("profile is self-intersecting")
+    signed_area = sum(
+        result[index][0] * result[(index + 1) % count][1]
+        - result[(index + 1) % count][0] * result[index][1]
+        for index in range(count)
+    )
+    if abs(signed_area) <= 1e-12:
+        raise ValueError("profile area must be nonzero")
+    return result
+
+
+def _object_world_bounds(obj):
+    return [obj.matrix_world @ Vector(corner) for corner in obj.bound_box]
+
+
+def _aggregate_bounds(objects):
+    corners = [corner for obj in objects for corner in _object_world_bounds(obj)]
+    if not corners:
+        raise ValueError("cannot calculate bounds without objects")
+    minimum = Vector(min(corner[axis] for corner in corners) for axis in range(3))
+    maximum = Vector(max(corner[axis] for corner in corners) for axis in range(3))
+    return minimum, maximum
+
+
+def _job_asset_objects(job, asset_id, *, meshes_only=False):
+    objects = []
+    for name in sorted(job.created_objects):
+        obj = bpy.data.objects.get(name)
+        if obj is None or obj.get("precision_asset_id") != asset_id:
+            continue
+        if meshes_only and obj.type != "MESH":
+            continue
+        objects.append(obj)
+    return objects
+
+
+def _file_sha256(filepath):
+    digest = hashlib.sha256()
+    with open(filepath, "rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _apply_object_transform(obj, *, rotation=True, scale=True):
+    bpy.ops.object.select_all(action="DESELECT")
+    obj.select_set(True)
+    bpy.context.view_layer.objects.active = obj
+    bpy.ops.object.transform_apply(location=False, rotation=rotation, scale=scale)
+
+
 def _owned(name: str, prefix: str) -> bool:
     return name.startswith(prefix)
 
@@ -248,6 +417,221 @@ def execute(command):
         )
     if name == "precision_abort_job":
         return _abort_job(params["job_id"])
+    if name == "precision_create_part":
+        job = _require_job(params["job_id"])
+        asset_id = _validate_asset_id(params["asset_id"])
+        object_name = _job_object_name(job, asset_id)
+        dimensions = params.get("target_dimensions") or params.get("dimensions")
+        location = params.get("location") or [0.0, 0.0, 0.0]
+        obj = _create_exact_primitive(
+            object_name,
+            params.get("primitive", "cube"),
+            dimensions,
+            location,
+        )
+        obj.rotation_euler = [
+            math.radians(float(value))
+            for value in params.get("rotation_deg", [0.0, 0.0, 0.0])
+        ]
+        _tag_job_object(job, obj, asset_id)
+        _set_metadata(obj, params.get("metadata"))
+        obj["precision_anchors"] = json.dumps(
+            params.get("anchors", {}), sort_keys=True, separators=(",", ":")
+        )
+        return {"job_id": job.job_id, "asset_id": asset_id, **_inspect(obj)}
+    if name == "precision_profile_extrude":
+        job = _require_job(params["job_id"])
+        asset_id = _validate_asset_id(params["asset_id"])
+        points = _validate_simple_polygon(params.get("points") or params.get("profile"))
+        depth = float(params["depth"])
+        if not math.isfinite(depth) or abs(depth) <= 1e-12:
+            raise ValueError("extrusion depth must be nonzero")
+        object_name = _job_object_name(job, asset_id)
+        if bpy.data.objects.get(object_name) is not None:
+            raise ValueError(f"object already exists: {object_name}")
+        count = len(points)
+        vertices = [(x, y, 0.0) for x, y in points]
+        vertices.extend((x, y, depth) for x, y in points)
+        faces = [tuple(reversed(range(count))), tuple(range(count, count * 2))]
+        faces.extend(
+            (
+                index,
+                (index + 1) % count,
+                (index + 1) % count + count,
+                index + count,
+            )
+            for index in range(count)
+        )
+        mesh = bpy.data.meshes.new(object_name + "_Mesh")
+        mesh.from_pydata(vertices, [], faces)
+        mesh.validate(verbose=False)
+        mesh.update(calc_edges=True)
+        obj = bpy.data.objects.new(object_name, mesh)
+        bpy.context.collection.objects.link(obj)
+        _set_dimensions(
+            obj,
+            params.get("target_dimensions") or params.get("dimensions"),
+        )
+        obj.location = params.get("location") or [0.0, 0.0, 0.0]
+        obj.rotation_euler = [
+            math.radians(float(value))
+            for value in params.get("rotation_deg", [0.0, 0.0, 0.0])
+        ]
+        _tag_job_object(job, obj, asset_id)
+        obj["precision_anchors"] = json.dumps(
+            params.get("anchors", {}), sort_keys=True, separators=(",", ":")
+        )
+        return {"job_id": job.job_id, "asset_id": asset_id, **_inspect(obj)}
+    if name == "precision_import_asset":
+        job = _require_job(params["job_id"])
+        asset_id = _validate_asset_id(params["asset_id"])
+        filepath = _safe_work_path(params["filepath"])
+        if not os.path.isfile(filepath):
+            raise ValueError(f"import file not found: {filepath}")
+        extension = os.path.splitext(filepath)[1].lower()
+        checksum = _file_sha256(filepath)
+        expected_checksum = params.get("checksum")
+        if expected_checksum:
+            expected_digest = str(expected_checksum).removeprefix("sha256:").lower()
+            if expected_digest != checksum:
+                raise ValueError("import checksum does not match source file")
+        root_name = _job_object_name(job, asset_id, "ROOT")
+        if bpy.data.objects.get(root_name) is not None:
+            raise ValueError(f"object already exists: {root_name}")
+        before = set(bpy.data.objects)
+        if extension in {".glb", ".gltf"}:
+            bpy.ops.import_scene.gltf(filepath=filepath)
+        elif extension == ".fbx":
+            if hasattr(bpy.ops.wm, "fbx_import"):
+                bpy.ops.wm.fbx_import(filepath=filepath)
+            else:
+                bpy.ops.import_scene.fbx(filepath=filepath)
+        else:
+            raise ValueError("import format must be GLB, glTF or FBX")
+        imported = sorted(
+            (obj for obj in bpy.data.objects if obj not in before),
+            key=lambda obj: obj.name,
+        )
+        if not imported:
+            raise RuntimeError("import produced no Blender objects")
+        root = bpy.data.objects.new(root_name, None)
+        bpy.context.collection.objects.link(root)
+        _tag_job_object(job, root, asset_id)
+        for index, obj in enumerate(imported, start=1):
+            world = obj.matrix_world.copy()
+            source_name = obj.name
+            obj.name = _job_object_name(job, asset_id, f"{index:03d}_{source_name}")
+            obj.parent = root
+            obj.matrix_world = world
+            _tag_job_object(job, obj, asset_id)
+        provenance = str(params.get("provenance") or f"imported:{os.path.basename(filepath)}")
+        for obj in [root, *imported]:
+            obj["precision_provenance"] = provenance
+            obj["precision_checksum"] = f"sha256:{checksum}"
+            obj["precision_source_path"] = filepath
+        root["precision_anchors"] = json.dumps(
+            params.get("anchors", {}), sort_keys=True, separators=(",", ":")
+        )
+        return {
+            "job_id": job.job_id,
+            "asset_id": asset_id,
+            "root": root.name,
+            "objects": [obj.name for obj in imported],
+            "object_count": len(imported),
+            "checksum": f"sha256:{checksum}",
+            "provenance": provenance,
+        }
+    if name == "precision_normalize_asset":
+        job = _require_job(params["job_id"])
+        asset_id = _validate_asset_id(params["asset_id"])
+        root_name = params.get("name") or _job_object_name(job, asset_id, "ROOT")
+        root = _require_job_object(job, root_name)
+        source_units = str(params.get("source_units", "m")).lower()
+        target_units = str(params.get("target_units", "m")).lower()
+        if source_units not in UNIT_TO_METERS or target_units not in UNIT_TO_METERS:
+            raise ValueError("source_units and target_units must be mm, cm or m")
+        source_axes = params.get("source_axes") or {}
+        source_up_axis = str(
+            params.get("source_up_axis") or source_axes.get("up") or "Z"
+        ).upper()
+        target_up_axis = str(params.get("target_up_axis", "Z")).upper()
+        if source_up_axis not in {"Y", "Z"} or target_up_axis not in {"Y", "Z"}:
+            raise ValueError("supported up axes are Y and Z")
+        factor = UNIT_TO_METERS[source_units] / UNIT_TO_METERS[target_units]
+        root.scale = (factor, factor, factor)
+        # Deterministic right-handed up-axis conversion: +90° X maps Y-up to Z-up.
+        if source_up_axis == "Y" and target_up_axis == "Z":
+            root.rotation_euler.x = math.radians(90.0)
+        elif source_up_axis == "Z" and target_up_axis == "Y":
+            root.rotation_euler.x = math.radians(-90.0)
+        else:
+            root.rotation_euler.x = 0.0
+        bpy.context.view_layer.update()
+        meshes = _job_asset_objects(job, asset_id, meshes_only=True)
+        if not meshes:
+            raise ValueError(f"asset has no mesh objects: {asset_id}")
+        minimum, maximum = _aggregate_bounds(meshes)
+        current_dimensions = maximum - minimum
+        target_dimensions = params.get("target_dimensions") or params.get("dimensions")
+        scaling_mode = str(params.get("scaling_mode", "explicit_xyz"))
+        if target_dimensions is not None:
+            if len(target_dimensions) != 3 or any(float(value) <= 0 for value in target_dimensions):
+                raise ValueError("target_dimensions must contain three positive numbers")
+            if any(float(value) <= 1e-12 for value in current_dimensions):
+                raise ValueError("cannot normalize an asset with a zero world dimension")
+            ratios = [
+                float(target_dimensions[index]) / float(current_dimensions[index])
+                for index in range(3)
+            ]
+            if scaling_mode == "uniform":
+                uniform_factor = min(ratios)
+                root.scale = tuple(float(value) * uniform_factor for value in root.scale)
+            elif scaling_mode in {"explicit", "explicit_xyz", "xyz"}:
+                root.scale = tuple(
+                    float(root.scale[index]) * ratios[index] for index in range(3)
+                )
+            else:
+                raise ValueError("scaling_mode must be uniform or explicit_xyz")
+        bpy.context.view_layer.update()
+        world_matrices = {obj.name: obj.matrix_world.copy() for obj in meshes}
+        root.rotation_euler = (0.0, 0.0, 0.0)
+        root.scale = (1.0, 1.0, 1.0)
+        bpy.context.view_layer.update()
+        for obj in meshes:
+            obj.matrix_world = world_matrices[obj.name]
+            _apply_object_transform(obj)
+        bpy.context.view_layer.update()
+        minimum, maximum = _aggregate_bounds(meshes)
+        provenance = str(
+            params.get("provenance") or root.get("precision_provenance", "")
+        )
+        checksum = str(params.get("checksum") or root.get("precision_checksum", ""))
+        for obj in [root, *meshes]:
+            obj["precision_provenance"] = provenance
+            obj["precision_checksum"] = checksum
+            obj["precision_source_units"] = source_units
+            obj["precision_target_units"] = target_units
+            obj["precision_source_up_axis"] = source_up_axis
+            obj["precision_target_up_axis"] = target_up_axis
+            obj["precision_scaling_mode"] = scaling_mode
+        return {
+            "job_id": job.job_id,
+            "asset_id": asset_id,
+            "root": root.name,
+            "source_units": source_units,
+            "target_units": target_units,
+            "source_up_axis": source_up_axis,
+            "target_up_axis": target_up_axis,
+            "scaling_mode": scaling_mode,
+            "world_bbox_min": [round(float(value), 6) for value in minimum],
+            "world_bbox_max": [round(float(value), 6) for value in maximum],
+            "dimensions": [
+                round(float(maximum[index] - minimum[index]), 6)
+                for index in range(3)
+            ],
+            "provenance": provenance,
+            "checksum": checksum,
+        }
     if name == "precision_begin":
         prefix = params.get("prefix", "PRECISION_")
         existing = _jobs.get(LEGACY_JOB_ID)
