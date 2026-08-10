@@ -23,6 +23,12 @@ mcp = FastMCP("BlenderPrecisionMCP")
 _JOB_ID = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}$")
 _GRADE_RANK = {"L0": 0, "L1": 1, "L2": 2}
 _BLOCKED_TOOLS = {"backend_unavailable", "external_pending"}
+_CAD_STATUS_GATES = (
+    "available",
+    "solver_available",
+    "operator_available",
+    "solver_registered",
+)
 
 
 @dataclass
@@ -33,6 +39,8 @@ class JobRecord:
     plan_digest: str
     plan_status: str
     begin_checkpoint: str | None
+    backend_status: tuple[tuple[str, bool], ...]
+    backend_status_digest: str
     qa_report: dict[str, Any] | None = None
     qa_report_digest: str | None = None
     qa_scene_digest: str | None = None
@@ -102,6 +110,61 @@ def _require_matching_contracts(
     return record
 
 
+def _resolve_backend_status(
+    asset_manifest: dict[str, Any],
+) -> tuple[bool, tuple[tuple[str, bool], ...], str]:
+    cad_required = any(
+        asset["source"] == "cad_sketcher"
+        for asset in asset_manifest["assets"]
+    )
+    if not cad_required:
+        status = {"cad_required": False}
+        return False, tuple(status.items()), _document_digest(status)
+
+    try:
+        response = bridge.call("precision_cad_status")
+    except Exception:
+        response = {}
+    if not isinstance(response, dict):
+        response = {}
+    status = {gate: response.get(gate) is True for gate in _CAD_STATUS_GATES}
+    available = all(status.values())
+    immutable_status = tuple(sorted(status.items()))
+    return available, immutable_status, _document_digest(status)
+
+
+def _read_bound_contract(
+    bundle: EvidenceBundle,
+    name: str,
+    expected_job_id: str,
+    expected_digest: str,
+) -> None:
+    path = bundle.root / f"{name}.json"
+    try:
+        document = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(document, dict):
+            raise ValueError("contract root must be an object")
+        validate_document(name, document, expected_job_id=expected_job_id)
+    except (OSError, json.JSONDecodeError, ValueError) as error:
+        raise ValueError(f"bound evidence is missing or invalid: {name}") from error
+    if _document_digest(document) != expected_digest:
+        raise ValueError(f"bound evidence digest mismatch: {name}")
+
+
+def _require_bound_evidence(
+    bundle: EvidenceBundle, record: JobRecord, job_id: str
+) -> None:
+    _read_bound_contract(
+        bundle, "scene_spec", job_id, record.scene_digest
+    )
+    _read_bound_contract(
+        bundle, "asset_manifest", job_id, record.manifest_digest
+    )
+    _read_bound_contract(
+        bundle, "operation_plan", job_id, record.plan_digest
+    )
+
+
 def _typed_call(command: str, job_id: str, params: dict[str, Any]) -> str:
     _require_eligible_record(job_id, {"active", "validating"})
     return _call(command, {"job_id": job_id, **params})
@@ -158,7 +221,7 @@ def precision_prepare_job(
     asset_manifest: dict[str, Any],
     cad_available: bool = False,
 ) -> str:
-    """Validate V2 contracts, persist a deterministic plan and begin a job."""
+    """Prepare V2 work; deprecated cad_available is ignored for safety."""
     job_id = _validated_inputs(scene_spec, asset_manifest)
     existing = _job_records.get(job_id)
     if existing is not None and not (
@@ -169,7 +232,12 @@ def precision_prepare_job(
         raise ValueError(
             f"job cannot be prepared from state: {existing.state.value}"
         )
-    plan = build_plan(scene_spec, asset_manifest, bool(cad_available))
+    (
+        resolved_cad_available,
+        backend_status,
+        backend_status_digest,
+    ) = _resolve_backend_status(asset_manifest)
+    plan = build_plan(scene_spec, asset_manifest, resolved_cad_available)
     validate_document("operation_plan", plan, expected_job_id=job_id)
     scene_digest = _document_digest(scene_spec)
     manifest_digest = _document_digest(asset_manifest)
@@ -191,6 +259,8 @@ def precision_prepare_job(
             plan_digest=plan_digest,
             plan_status=plan_status,
             begin_checkpoint=None,
+            backend_status=backend_status,
+            backend_status_digest=backend_status_digest,
         )
         return _json(plan)
 
@@ -206,6 +276,8 @@ def precision_prepare_job(
         plan_digest=plan_digest,
         plan_status=plan_status,
         begin_checkpoint=str(checkpoint),
+        backend_status=backend_status,
+        backend_status_digest=backend_status_digest,
     )
     return _json(plan)
 
@@ -419,9 +491,10 @@ def precision_validate_job(
         asset_manifest,
         {"active", "failed_qa"},
     )
+    bundle = EvidenceBundle(WORKDIR, job_id)
+    _require_bound_evidence(bundle, record, job_id)
     unresolved = list(assumptions or [])
     state = _state_for_validation(record)
-    bundle = EvidenceBundle(WORKDIR, job_id)
     before_checkpoint = bundle.checkpoint_path("before")
     checkpoint_ok = (
         record.begin_checkpoint == str(before_checkpoint)
@@ -501,6 +574,8 @@ def precision_finalize_job(
         asset_manifest,
         {"validating", "failed_qa"},
     )
+    bundle = EvidenceBundle(WORKDIR, job_id)
+    _require_bound_evidence(bundle, record, job_id)
     if record.qa_report is None or record.qa_report_digest is None:
         raise ValueError("job has no validated QA report")
     if (
@@ -512,7 +587,6 @@ def precision_finalize_job(
     report = _document_snapshot(record.qa_report)
     validate_document("qa_report", report, expected_job_id=job_id)
     state = record.state
-    bundle = EvidenceBundle(WORKDIR, job_id)
     failed_required = any(
         assertion["required"] and not assertion["passed"]
         for assertion in report["assertions"]

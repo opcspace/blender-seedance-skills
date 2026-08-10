@@ -131,15 +131,29 @@ PASSING_MEASUREMENTS = {
 
 
 class FakeBridge:
-    def __init__(self, *, measurements=None, geometry_ok=True, provenance_ok=True):
+    def __init__(
+        self,
+        *,
+        measurements=None,
+        geometry_ok=True,
+        provenance_ok=True,
+        cad_status=None,
+        cad_error=None,
+    ):
         self.calls = []
         self.measurements = dict(measurements or PASSING_MEASUREMENTS)
         self.geometry_ok = geometry_ok
         self.provenance_ok = provenance_ok
+        self.cad_status = dict(cad_status or {})
+        self.cad_error = cad_error
 
     def call(self, command, params=None):
         payload = dict(params or {})
         self.calls.append((command, payload))
+        if command == "precision_cad_status":
+            if self.cad_error is not None:
+                raise self.cad_error
+            return self.cad_status
         if command == "precision_inspect_job":
             return {
                 "job_id": payload["job_id"],
@@ -267,16 +281,23 @@ class PrecisionServerV2Tests(unittest.TestCase):
             ("tripo", "external_pending"),
         ):
             with self.subTest(source=source), tempfile.TemporaryDirectory() as directory:
+                server._job_records.clear()
                 fake = FakeBridge()
                 manifest = copy.deepcopy(MANIFEST)
                 manifest["assets"][0]["source"] = source
                 plan = self._prepare(fake, directory, manifest=manifest)
 
                 self.assertEqual(plan["steps"][0]["tool"], expected_tool)
-                self.assertEqual(fake.calls, [])
+                expected_calls = (
+                    [("precision_cad_status", {})]
+                    if source == "cad_sketcher"
+                    else []
+                )
+                self.assertEqual(fake.calls, expected_calls)
                 record = server._job_records[JOB_ID]
                 self.assertEqual(record.plan_status, "blocked")
                 self.assertEqual(record.state.value, "planned")
+                self.assertEqual(len(record.backend_status_digest), 64)
                 bundle = Path(directory).resolve() / "evidence" / JOB_ID
                 self.assertTrue((bundle / "scene_spec.json").is_file())
                 self.assertTrue((bundle / "asset_manifest.json").is_file())
@@ -292,8 +313,83 @@ class PrecisionServerV2Tests(unittest.TestCase):
                         server.precision_validate_job(SCENE, manifest)
                     with self.assertRaisesRegex(ValueError, "blocked"):
                         server.precision_finalize_job(SCENE, manifest)
-                self.assertEqual(fake.calls, [])
+                self.assertEqual(fake.calls, expected_calls)
                 server._job_records.clear()
+
+    def test_caller_cannot_override_runtime_cad_status(self):
+        manifest = copy.deepcopy(MANIFEST)
+        manifest["assets"][0]["source"] = "cad_sketcher"
+        for label, status in (
+            (
+                "runtime unavailable",
+                {
+                    "available": False,
+                    "solver_available": True,
+                    "operator_available": True,
+                    "solver_registered": True,
+                },
+            ),
+            (
+                "solver unavailable",
+                {
+                    "available": True,
+                    "solver_available": False,
+                    "operator_available": True,
+                    "solver_registered": True,
+                },
+            ),
+        ):
+            with self.subTest(label=label), tempfile.TemporaryDirectory() as directory:
+                server._job_records.clear()
+                fake = FakeBridge(cad_status=status)
+                plan = self._prepare(
+                    fake,
+                    directory,
+                    manifest=manifest,
+                    cad_available=True,
+                )
+                self.assertEqual(plan["steps"][0]["tool"], "backend_unavailable")
+                self.assertEqual(fake.calls, [("precision_cad_status", {})])
+                self.assertEqual(
+                    server._job_records[JOB_ID].plan_status, "blocked"
+                )
+                server._job_records.clear()
+
+    def test_fully_healthy_runtime_cad_status_is_eligible(self):
+        manifest = copy.deepcopy(MANIFEST)
+        manifest["assets"][0]["source"] = "cad_sketcher"
+        healthy = {
+            "available": True,
+            "solver_available": True,
+            "operator_available": True,
+            "solver_registered": True,
+        }
+        fake = FakeBridge(cad_status=healthy)
+        with tempfile.TemporaryDirectory() as directory:
+            plan = self._prepare(fake, directory, manifest=manifest)
+            self.assertEqual(
+                plan["steps"][0]["tool"], "precision_create_cad_part"
+            )
+            self.assertEqual(
+                [command for command, _ in fake.calls],
+                ["precision_cad_status", "precision_begin_job"],
+            )
+            record = server._job_records[JOB_ID]
+            self.assertEqual(record.plan_status, "eligible")
+            self.assertEqual(dict(record.backend_status), healthy)
+            self.assertEqual(len(record.backend_status_digest), 64)
+
+    def test_runtime_cad_status_failure_blocks_prepare(self):
+        manifest = copy.deepcopy(MANIFEST)
+        manifest["assets"][0]["source"] = "cad_sketcher"
+        fake = FakeBridge(cad_error=RuntimeError("CAD probe failed"))
+        with tempfile.TemporaryDirectory() as directory:
+            plan = self._prepare(fake, directory, manifest=manifest)
+            self.assertEqual(plan["steps"][0]["tool"], "backend_unavailable")
+            self.assertEqual(fake.calls, [("precision_cad_status", {})])
+            self.assertEqual(
+                server._job_records[JOB_ID].plan_status, "blocked"
+            )
 
     def test_blocked_job_can_be_reprepared_with_locally_eligible_manifest(self):
         fake = FakeBridge()
@@ -589,6 +685,87 @@ class PrecisionServerV2Tests(unittest.TestCase):
                     )
                 self.assertEqual(fake.calls, [])
                 server._job_records.clear()
+
+    def test_validate_accepts_whitespace_only_changes_to_persisted_contracts(self):
+        fake = FakeBridge()
+        with tempfile.TemporaryDirectory() as directory:
+            self._prepare(fake, directory)
+            bundle = Path(directory).resolve() / "evidence" / JOB_ID
+            for name in ("scene_spec", "asset_manifest", "operation_plan"):
+                path = bundle / f"{name}.json"
+                document = json.loads(path.read_text(encoding="utf-8"))
+                path.write_text(
+                    json.dumps(document, ensure_ascii=False, indent=6) + "\n\n",
+                    encoding="utf-8",
+                )
+            report = self._validate(fake, directory)
+            self.assertEqual(report["final_grade"], "L2")
+
+    def test_tampered_persisted_plan_rejects_validate_and_finalize(self):
+        for phase in ("validate", "finalize"):
+            with self.subTest(phase=phase), tempfile.TemporaryDirectory() as directory:
+                server._job_records.clear()
+                fake = FakeBridge()
+                self._prepare(fake, directory)
+                if phase == "finalize":
+                    self._validate(fake, directory)
+                fake.calls.clear()
+                plan_path = (
+                    Path(directory).resolve()
+                    / "evidence"
+                    / JOB_ID
+                    / "operation_plan.json"
+                )
+                plan = json.loads(plan_path.read_text(encoding="utf-8"))
+                plan["steps"] = []
+                plan_path.write_text(json.dumps(plan), encoding="utf-8")
+
+                bridge_patch, workdir_patch = self._context(fake, directory)
+                with bridge_patch, workdir_patch, self.assertRaisesRegex(
+                    ValueError, "bound evidence"
+                ):
+                    if phase == "validate":
+                        server.precision_validate_job(SCENE, MANIFEST)
+                    else:
+                        server.precision_finalize_job(SCENE, MANIFEST)
+                self.assertEqual(fake.calls, [])
+                server._job_records.clear()
+
+    def test_tampered_persisted_scene_or_manifest_rejects_validate_and_finalize(self):
+        for phase in ("validate", "finalize"):
+            for contract_name in ("scene_spec", "asset_manifest"):
+                with self.subTest(
+                    phase=phase, contract=contract_name
+                ), tempfile.TemporaryDirectory() as directory:
+                    server._job_records.clear()
+                    fake = FakeBridge()
+                    self._prepare(fake, directory)
+                    if phase == "finalize":
+                        self._validate(fake, directory)
+                    fake.calls.clear()
+                    path = (
+                        Path(directory).resolve()
+                        / "evidence"
+                        / JOB_ID
+                        / f"{contract_name}.json"
+                    )
+                    document = json.loads(path.read_text(encoding="utf-8"))
+                    if contract_name == "scene_spec":
+                        document["measurements"][0]["target"] += 1.0
+                    else:
+                        document["assets"][0]["location"][0] += 1.0
+                    path.write_text(json.dumps(document), encoding="utf-8")
+
+                    bridge_patch, workdir_patch = self._context(fake, directory)
+                    with bridge_patch, workdir_patch, self.assertRaisesRegex(
+                        ValueError, "bound evidence"
+                    ):
+                        if phase == "validate":
+                            server.precision_validate_job(SCENE, MANIFEST)
+                        else:
+                            server.precision_finalize_job(SCENE, MANIFEST)
+                    self.assertEqual(fake.calls, [])
+                    server._job_records.clear()
 
     def test_finalize_passing_qa_writes_checksummed_artifacts_then_commits(self):
         fake = FakeBridge()
