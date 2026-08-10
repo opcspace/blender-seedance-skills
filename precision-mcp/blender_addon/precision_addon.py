@@ -18,6 +18,7 @@ import threading
 import traceback
 from dataclasses import dataclass, field
 from mathutils import Vector
+from mathutils.bvhtree import BVHTree
 
 import bpy
 
@@ -32,6 +33,13 @@ JOB_ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}$")
 LEGACY_JOB_ID = "legacy-v1"
 UNIT_TO_METERS = {"mm": 0.001, "cm": 0.01, "m": 1.0}
 ASSET_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
+PATCHES = {
+    "dimensions",
+    "location",
+    "rotation_deg",
+    "hole_diameter",
+    "array_spacing",
+}
 _server = None
 _transaction_prefix = None
 _transaction_preexisting = set()
@@ -290,8 +298,8 @@ def _aggregate_bounds(objects):
     corners = [corner for obj in objects for corner in _object_world_bounds(obj)]
     if not corners:
         raise ValueError("cannot calculate bounds without objects")
-    minimum = Vector(min(corner[axis] for corner in corners) for axis in range(3))
-    maximum = Vector(max(corner[axis] for corner in corners) for axis in range(3))
+    minimum = Vector([min(corner[axis] for corner in corners) for axis in range(3)])
+    maximum = Vector([max(corner[axis] for corner in corners) for axis in range(3)])
     return minimum, maximum
 
 
@@ -320,6 +328,96 @@ def _apply_object_transform(obj, *, rotation=True, scale=True):
     obj.select_set(True)
     bpy.context.view_layer.objects.active = obj
     bpy.ops.object.transform_apply(location=False, rotation=rotation, scale=scale)
+
+
+def _asset_root(job, asset_id):
+    asset_id = _validate_asset_id(asset_id)
+    for name in (
+        _job_object_name(job, asset_id, "ROOT"),
+        _job_object_name(job, asset_id),
+    ):
+        obj = bpy.data.objects.get(name)
+        if obj is not None and name in job.created_objects:
+            return _require_job_object(job, name)
+    raise ValueError(f"asset not found in job {job.job_id}: {asset_id}")
+
+
+def _vector3(value, label, *, positive=False, nonzero=False):
+    if not isinstance(value, (list, tuple)) or len(value) != 3:
+        raise ValueError(f"{label} must contain three numbers")
+    result = [float(component) for component in value]
+    if not all(math.isfinite(component) for component in result):
+        raise ValueError(f"{label} must contain finite numbers")
+    if positive and any(component <= 0 for component in result):
+        raise ValueError(f"{label} must contain positive numbers")
+    if nonzero and any(abs(component) <= 1e-12 for component in result):
+        raise ValueError(f"{label} must not contain zero")
+    return result
+
+
+def _stored_anchors(obj):
+    raw = obj.get("precision_anchors", "{}")
+    if isinstance(raw, str):
+        try:
+            raw = json.loads(raw)
+        except json.JSONDecodeError:
+            return {}
+    return raw if isinstance(raw, dict) else {}
+
+
+def _resolve_local_anchor(obj, anchor, label):
+    if isinstance(anchor, str):
+        anchors = _stored_anchors(obj)
+        if anchor not in anchors:
+            raise ValueError(f"{label} anchor not found on {obj.name}: {anchor}")
+        anchor = anchors[anchor]
+    return Vector(_vector3(anchor, f"{label} anchor"))
+
+
+def _aabb_distance(first_min, first_max, second_min, second_max):
+    gaps = [
+        max(
+            0.0,
+            float(first_min[axis] - second_max[axis]),
+            float(second_min[axis] - first_max[axis]),
+        )
+        for axis in range(3)
+    ]
+    return math.sqrt(sum(gap * gap for gap in gaps))
+
+
+def _aabb_overlaps(first_min, first_max, second_min, second_max):
+    return all(
+        first_min[axis] <= second_max[axis]
+        and second_min[axis] <= first_max[axis]
+        for axis in range(3)
+    )
+
+
+def _raw_mesh_report(obj):
+    report = _inspect(obj)
+    mesh = obj.data
+    report["applied_scale"] = all(abs(float(value) - 1.0) <= 1e-6 for value in obj.scale)
+    report["degenerate_polygons"] = sum(
+        1 for polygon in mesh.polygons if float(polygon.area) <= 1e-12
+    )
+    report["invalid_normals"] = sum(
+        1
+        for polygon in mesh.polygons
+        if not all(math.isfinite(float(value)) for value in polygon.normal)
+        or float(polygon.normal.length) <= 1e-12
+    )
+    anchors = {}
+    for anchor_name, local_anchor in sorted(_stored_anchors(obj).items()):
+        try:
+            world_anchor = obj.matrix_world @ Vector(
+                _vector3(local_anchor, f"anchor {anchor_name}")
+            )
+        except ValueError:
+            continue
+        anchors[anchor_name] = [round(float(value), 6) for value in world_anchor]
+    report["anchors"] = anchors
+    return report
 
 
 def _owned(name: str, prefix: str) -> bool:
@@ -632,6 +730,247 @@ def execute(command):
             "provenance": provenance,
             "checksum": checksum,
         }
+    if name == "precision_set_transform":
+        job = _require_job(params["job_id"])
+        asset_id = params.get("asset_id")
+        obj = (
+            _require_job_object(job, params["name"])
+            if params.get("name")
+            else _asset_root(job, asset_id)
+        )
+        if "location" in params:
+            obj.location = _vector3(params["location"], "location")
+        if "rotation_deg" in params:
+            obj.rotation_euler = [
+                math.radians(value)
+                for value in _vector3(params["rotation_deg"], "rotation_deg")
+            ]
+        if "scale" in params:
+            obj.scale = _vector3(params["scale"], "scale", nonzero=True)
+        bpy.context.view_layer.update()
+        return {
+            "job_id": job.job_id,
+            "asset_id": obj.get("precision_asset_id"),
+            "name": obj.name,
+            "location": [round(float(value), 6) for value in obj.location],
+            "rotation_deg": [
+                round(math.degrees(float(value)), 6) for value in obj.rotation_euler
+            ],
+            "scale": [round(float(value), 6) for value in obj.scale],
+        }
+    if name == "precision_align_anchors":
+        job = _require_job(params["job_id"])
+        moving = (
+            _require_job_object(job, params["moving_name"])
+            if params.get("moving_name")
+            else _asset_root(job, params["moving_asset_id"])
+        )
+        target = (
+            _require_job_object(job, params["target_name"])
+            if params.get("target_name")
+            else _asset_root(job, params["target_asset_id"])
+        )
+        moving_anchor = params.get("moving_anchor")
+        if moving_anchor is None:
+            moving_anchor = params.get("moving_local_anchor")
+        target_anchor = params.get("target_anchor")
+        if target_anchor is None:
+            target_anchor = params.get("target_local_anchor")
+        moving_world = moving.matrix_world @ _resolve_local_anchor(
+            moving, moving_anchor, "moving"
+        )
+        target_world = target.matrix_world @ _resolve_local_anchor(
+            target, target_anchor, "target"
+        )
+        translation = target_world - moving_world
+        moving.location += translation
+        bpy.context.view_layer.update()
+        aligned_world = moving.matrix_world @ _resolve_local_anchor(
+            moving, moving_anchor, "moving"
+        )
+        return {
+            "job_id": job.job_id,
+            "moving": moving.name,
+            "target": target.name,
+            "translation": [round(float(value), 6) for value in translation],
+            "aligned_world_anchor": [
+                round(float(value), 6) for value in aligned_world
+            ],
+        }
+    if name == "precision_patch_feature":
+        job = _require_job(params["job_id"])
+        obj = (
+            _require_job_object(job, params["name"])
+            if params.get("name")
+            else _asset_root(job, params["asset_id"])
+        )
+        patch = params.get("patch") or params.get("field")
+        if patch not in PATCHES:
+            raise ValueError(f"patch must be one of: {', '.join(sorted(PATCHES))}")
+        value = params.get("value")
+        if patch == "dimensions":
+            _set_dimensions(obj, _vector3(value, "dimensions", positive=True))
+        elif patch == "location":
+            obj.location = _vector3(value, "location")
+        elif patch == "rotation_deg":
+            obj.rotation_euler = [
+                math.radians(component)
+                for component in _vector3(value, "rotation_deg")
+            ]
+        else:
+            feature_id = params.get("feature_id")
+            modifier = next(
+                (
+                    candidate
+                    for candidate in obj.modifiers
+                    if candidate.get("precision_feature_id") == feature_id
+                ),
+                None,
+            )
+            if modifier is None:
+                return {
+                    "ok": False,
+                    "job_id": job.job_id,
+                    "asset_id": obj.get("precision_asset_id"),
+                    "error": {
+                        "code": "missing_feature",
+                        "feature_id": feature_id,
+                        "patch": patch,
+                    },
+                }
+            if patch == "hole_diameter":
+                diameter = float(value)
+                if not math.isfinite(diameter) or diameter <= 0:
+                    raise ValueError("hole_diameter must be positive")
+                modifier["precision_hole_diameter"] = diameter
+                cutter = getattr(modifier, "object", None)
+                if cutter is not None and cutter.type == "MESH":
+                    cutter.scale.x *= diameter / max(float(cutter.dimensions.x), 1e-12)
+                    cutter.scale.y *= diameter / max(float(cutter.dimensions.y), 1e-12)
+            else:
+                if isinstance(value, (list, tuple)):
+                    spacing = _vector3(value, "array_spacing")
+                else:
+                    spacing = [float(value), 0.0, 0.0]
+                if not all(math.isfinite(component) for component in spacing):
+                    raise ValueError("array_spacing must be finite")
+                modifier["precision_array_spacing"] = json.dumps(spacing)
+                if hasattr(modifier, "use_constant_offset"):
+                    modifier.use_constant_offset = True
+                if hasattr(modifier, "constant_offset_displace"):
+                    modifier.constant_offset_displace = spacing
+        bpy.context.view_layer.update()
+        return {
+            "ok": True,
+            "job_id": job.job_id,
+            "asset_id": obj.get("precision_asset_id"),
+            "name": obj.name,
+            "patch": patch,
+            "value": value,
+        }
+    if name == "precision_inspect_job":
+        job = _require_job(params["job_id"])
+        bpy.context.view_layer.update()
+        objects = [
+            bpy.data.objects.get(object_name)
+            for object_name in sorted(job.created_objects)
+        ]
+        meshes = [obj for obj in objects if obj is not None and obj.type == "MESH"]
+        if not meshes:
+            raise ValueError(f"job has no mesh objects: {job.job_id}")
+        reports = [_raw_mesh_report(obj) for obj in meshes]
+        report_by_name = {report["name"]: report for report in reports}
+        minimum, maximum = _aggregate_bounds(meshes)
+        contact_distances = []
+        collision_pairs = []
+        dependencies = bpy.context.evaluated_depsgraph_get()
+        bvh_cache = {}
+        for first_index, first in enumerate(meshes):
+            first_report = report_by_name[first.name]
+            first_min = first_report["world_bbox_min"]
+            first_max = first_report["world_bbox_max"]
+            for second in meshes[first_index + 1 :]:
+                second_report = report_by_name[second.name]
+                second_min = second_report["world_bbox_min"]
+                second_max = second_report["world_bbox_max"]
+                distance = _aabb_distance(
+                    first_min, first_max, second_min, second_max
+                )
+                contact_distances.append(
+                    {
+                        "objects": [first.name, second.name],
+                        "distance": round(distance, 6),
+                    }
+                )
+                # AABB is broad phase only. A collision is confirmed only by BVH overlap.
+                if not _aabb_overlaps(first_min, first_max, second_min, second_max):
+                    continue
+                if first.name not in bvh_cache:
+                    bvh_cache[first.name] = BVHTree.FromObject(first, dependencies)
+                if second.name not in bvh_cache:
+                    bvh_cache[second.name] = BVHTree.FromObject(second, dependencies)
+                if bvh_cache[first.name].overlap(bvh_cache[second.name]):
+                    collision_pairs.append([first.name, second.name])
+        anchors = {}
+        for report in reports:
+            for anchor_name, world_position in report["anchors"].items():
+                anchors[f"{report['name']}:{anchor_name}"] = world_position
+        measurements = {}
+        for measurement in params.get("measurements", []):
+            measurement_id = measurement.get("id")
+            if not measurement_id:
+                continue
+            kind = measurement.get("kind")
+            asset_id = measurement.get("asset_id")
+            axis_name = measurement.get("axis")
+            axis = {"X": 0, "Y": 1, "Z": 2}.get(axis_name)
+            targets = [
+                obj
+                for obj in meshes
+                if not asset_id or obj.get("precision_asset_id") == asset_id
+            ]
+            if kind in {"dimension", "global_envelope"} and axis is not None:
+                target_min, target_max = _aggregate_bounds(
+                    meshes if kind == "global_envelope" else targets
+                )
+                measurements[measurement_id] = round(
+                    float(target_max[axis] - target_min[axis]), 6
+                )
+        non_manifold = sum(report["non_manifold_edges"] for report in reports)
+        degenerate_polygons = sum(report["degenerate_polygons"] for report in reports)
+        invalid_normals = sum(report["invalid_normals"] for report in reports)
+        applied_scale = all(report["applied_scale"] for report in reports)
+        provenance_ok = all(
+            bool(obj.get("precision_asset_id")) and bool(obj.get("precision_job_id"))
+            for obj in meshes
+        )
+        return {
+            "job_id": job.job_id,
+            "state": job.state,
+            "object_count": len(meshes),
+            "aggregate_bounds": {
+                "min": [round(float(value), 6) for value in minimum],
+                "max": [round(float(value), 6) for value in maximum],
+                "dimensions": [
+                    round(float(maximum[index] - minimum[index]), 6)
+                    for index in range(3)
+                ],
+            },
+            "objects": reports,
+            "applied_scale": applied_scale,
+            "non_manifold_edges": non_manifold,
+            "degenerate_polygons": degenerate_polygons,
+            "invalid_normals": invalid_normals,
+            "ground_z": round(float(minimum.z), 6),
+            "anchors": anchors,
+            "contact_distances": contact_distances,
+            "collision_pairs": collision_pairs,
+            "measurements": measurements,
+            "geometry_ok": not (
+                non_manifold or degenerate_polygons or invalid_normals
+            ),
+            "provenance_ok": provenance_ok,
+        }
     if name == "precision_begin":
         prefix = params.get("prefix", "PRECISION_")
         existing = _jobs.get(LEGACY_JOB_ID)
@@ -814,21 +1153,59 @@ def execute(command):
                 issues.append({"object": obj.name, "code": "non_manifold_edges", "count": report["non_manifold_edges"]})
         return {"passed": not issues, "tolerance": tolerance, "object_count": len(objects), "issues": issues}
     if name == "precision_frame_camera":
-        obj = _require_object(params["name"])
+        if params.get("job_id"):
+            job = _require_job(params["job_id"])
+            if params.get("asset_id"):
+                objects = _job_asset_objects(job, params["asset_id"], meshes_only=True)
+            else:
+                objects = [
+                    bpy.data.objects.get(object_name)
+                    for object_name in sorted(job.created_objects)
+                ]
+                objects = [
+                    obj for obj in objects if obj is not None and obj.type == "MESH"
+                ]
+        else:
+            obj = _require_object(params["name"])
+            objects = [obj] if obj.type == "MESH" else []
+            objects.extend(child for child in obj.children_recursive if child.type == "MESH")
+        if not objects:
+            raise ValueError("camera framing requires at least one mesh object")
+        minimum, maximum = _aggregate_bounds(objects)
+        center = (minimum + maximum) * 0.5
         camera = bpy.context.scene.camera
         if camera is None:
             data = bpy.data.cameras.new("PRECISION_Camera")
             camera = bpy.data.objects.new("PRECISION_Camera", data)
             bpy.context.collection.objects.link(camera)
             bpy.context.scene.camera = camera
-        fill = max(0.3, min(float(params.get("target_fill", 0.72)), 0.9))
-        radius = max(obj.dimensions) / 2.0
-        fov = camera.data.angle
-        distance = radius / max(math.tan(fov / 2.0) * fill, 1e-6)
-        camera.location = obj.location + Vector((distance, -distance, distance * 0.55))
-        _look_at(camera, obj.location)
         camera.data.lens = float(params.get("lens_mm", 50.0))
-        return {"camera": camera.name, "location": list(camera.location), "target_fill": fill}
+        fill = max(0.3, min(float(params.get("target_fill", 0.72)), 0.9))
+        scene = bpy.context.scene
+        resolution_x = max(float(scene.render.resolution_x), 1.0)
+        resolution_y = max(float(scene.render.resolution_y), 1.0)
+        pixel_aspect = max(float(scene.render.pixel_aspect_x), 1e-6) / max(
+            float(scene.render.pixel_aspect_y), 1e-6
+        )
+        render_aspect = (resolution_x / resolution_y) * pixel_aspect
+        horizontal_fov = float(camera.data.angle_x)
+        vertical_fov = 2.0 * math.atan(
+            math.tan(horizontal_fov / 2.0) / max(render_aspect, 1e-6)
+        )
+        effective_fov = min(horizontal_fov, vertical_fov)
+        radius = max(float((maximum - minimum).length) * 0.5, 1e-6)
+        distance = radius / max(math.tan(effective_fov / 2.0) * fill, 1e-6)
+        view_direction = Vector((1.0, -1.0, 0.55)).normalized()
+        camera.location = center + view_direction * distance
+        _look_at(camera, center)
+        return {
+            "camera": camera.name,
+            "location": [round(float(value), 6) for value in camera.location],
+            "target": [round(float(value), 6) for value in center],
+            "target_fill": fill,
+            "lens_mm": round(float(camera.data.lens), 6),
+            "render_aspect": round(render_aspect, 6),
+        }
     if name == "precision_render_white_model":
         scene = bpy.context.scene
         scene.render.engine = "BLENDER_WORKBENCH"

@@ -80,6 +80,50 @@ class PrecisionAddonSourceTests(unittest.TestCase):
         self.assertIn("_validate_simple_polygon", self.source)
         self.assertIn("self-intersecting", self.source)
 
+    def test_addon_defines_v2_assembly_patch_and_qa_commands(self):
+        for command in (
+            "precision_set_transform",
+            "precision_align_anchors",
+            "precision_patch_feature",
+            "precision_inspect_job",
+        ):
+            self.assertIn(command, self.source)
+
+    def test_feature_patches_are_closed_and_targeted(self):
+        self.assertIn("PATCHES", self.source)
+        for patch in (
+            '"dimensions"',
+            '"location"',
+            '"rotation_deg"',
+            '"hole_diameter"',
+            '"array_spacing"',
+        ):
+            self.assertIn(patch, self.source)
+        self.assertIn("precision_feature_id", self.source)
+        self.assertIn("missing_feature", self.source)
+
+    def test_inspection_uses_bvh_for_confirmed_collisions(self):
+        for marker in (
+            "BVHTree.FromObject",
+            "collision_pairs",
+            "contact_distances",
+            "degenerate_polygons",
+            "invalid_normals",
+            "applied_scale",
+        ):
+            self.assertIn(marker, self.source)
+
+    def test_camera_and_qa_share_aggregate_bounds(self):
+        self.assertIn("_aggregate_bounds", self.source)
+        camera_branch = self.source[
+            self.source.index('if name == "precision_frame_camera"') :
+            self.source.index('if name == "precision_render_white_model"')
+        ]
+        self.assertIn("_aggregate_bounds", camera_branch)
+        self.assertLess(camera_branch.index("camera.data.lens"), camera_branch.index("distance"))
+        self.assertIn("resolution_x", camera_branch)
+        self.assertIn("resolution_y", camera_branch)
+
 
 if __name__ == "__main__":
     unittest.main()
