@@ -11,11 +11,11 @@ Accept at least one known dimension or explicit real-world scale together with o
 - camera-matching data with sensor size, focal length, image resolution, pose/extrinsics, and a known scene dimension;
 - a scan, survey, CAD file, or measured source geometry whose units and provenance are verified.
 
-Record the source as an AssetManifest `calibration` or `dimensional_drawing` asset, including checksum, units, provenance, uncertainty, `assumptions`, and `reasons`.
+Set SceneSpec `reference_calibrated` only from an accepted source. If the source is represented in AssetManifest, use the schema role that reflects its modeling function (`fit_critical` or `stage`), an actual source enum such as `user` or `imported`, and optional `provenance`/`checksum`. Record unresolved calibration uncertainty in QA `assumptions` and missing-input explanations in QA `reasons`.
 
 ## Observed versus inferred
 
-Put directly visible/measured facts in `observed`. Put occluded geometry, guessed lens/pose, assumed symmetry, estimated thickness, or derived dimensions in `inferred` and repeat unresolved items in `assumptions`. Inferred values cannot satisfy a required calibration or L2 measurement.
+Keep directly visible/measured facts in observed working notes. Keep occluded geometry, guessed lens/pose, assumed symmetry, estimated thickness, or derived dimensions in inferred working notes, and copy unresolved items into QA `assumptions`. Inferred values cannot satisfy a required calibration or L2 measurement.
 
 Label every image with a stable `view_id` and a view label such as `front`, `rear`, `left`, `right`, `top`, `bottom`, `perspective`, or `detail`. Label camera data as `calibrated`, `estimated`, or `unknown`; only `calibrated` camera data counts toward a precision gate.
 

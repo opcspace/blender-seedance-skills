@@ -9,13 +9,13 @@ Treat Precision Core V2 contracts, measurements, assertions, and evidence as the
 
 ## Mandatory workflow
 
-1. **Calibrate input.** Record known dimensions, units, scale, camera/view calibration, observed facts, inferred facts, `assumptions`, and `reasons`. Missing a known dimension or scale and either a calibrated camera or dimensional drawing means **L0 only**. A single view or multiple uncalibrated views never raises the grade.
+1. **Calibrate input.** Record known dimensions, units, scale, camera/view calibration, and observed versus inferred facts. Carry unresolved inferences into QA `assumptions` and missing-input explanations into QA `reasons`. Missing a known dimension or scale and either a calibrated camera or dimensional drawing means **L0 only**. A single view or multiple uncalibrated views never raises the grade.
 2. **Write contracts.** Create the V2 `SceneSpec` and `AssetManifest`, then the deterministic typed operation plan. Declare every required measurement and absolute tolerance before geometry work.
-3. **Prepare.** Call `precision_prepare_job`. Stop on contract, asset, backend, or capability errors. If CAD is requested but unavailable, return `backend_unavailable`; never silently fall back. Tripo is optional only as an AssetManifest `visual_shell` source and cannot issue or upgrade precision.
+3. **Prepare.** Call `precision_prepare_job` with runtime `cad_available`. Stop on contract, asset, or capability errors. If a `cad_sketcher` asset plans a `backend_unavailable` step, stop; never silently fall back. Tripo is optional only as an AssetManifest `visual_shell` source and cannot issue or upgrade precision.
 4. **Execute typed operations.** Execute only the validated operation plan through Precision Core V2 operations. Never use raw code execution. Preserve operation IDs, parameters, checkpoints, and provenance.
 5. **Inspect and patch.** Call `precision_inspect_job`; resolve failures with named, typed patches, then inspect again. Use absolute tolerances for every fit-critical envelope, primary dimension, contact, anchor, clearance, alignment, and interface check.
 6. **Validate.** Call `precision_validate_job`. L1 requires a passing global envelope, every primary dimension, every contact check, and every anchor check. L2 requires every required measurement plus geometry, checkpoint, and provenance checks, no unresolved assumptions, and complete evidence. Any failed required assertion prevents commit and L2.
-7. **Finalize.** Call `precision_finalize_job` only after the requested gate passes. Deliver the committed model, report, contracts, operation/patch history, measurements, assertions, checkpoints, provenance, and rendered evidence listed in the contract.
+7. **Finalize.** Call `precision_finalize_job` only after `qa_report.json` records L2 with no failed required assertion. Deliver the four canonical JSON files, `assumptions.md`, committed model, checkpoints, assertions, provenance, artifact hashes, and rendered evidence listed in the contract. Lower grades remain uncommitted.
 
 Seedance is a downstream preview only. It cannot validate geometry, replace Blender evidence, or add a precision grade.
 

@@ -1,59 +1,69 @@
 # Precision Core V2 Contract
 
-Use these four JSON contract files as the job record. Validate them before executing geometry and preserve them unchanged in the final evidence bundle except through named contract revisions.
+Use the four schema-valid JSON files below as the canonical job record. Every root requires `spec_version: "2.0"` and the same `job_id`. Precision Core V2 rejects extra fields.
 
-## 1. `scene-spec.json` (`SceneSpec`)
+## `scene_spec.json` (`SceneSpec`)
 
-Required fields:
+Required root fields:
 
-- `schema_version`: `"2.0"`
-- `job_id`, `scene_id`, `units`
+- `spec_version`, `job_id`
+- `category`: `architecture`, `mechanical`, `furniture`, or `props`
 - `requested_grade`: `L0`, `L1`, or `L2`
-- `backend`: `blender` or `cad`
-- `coordinate_system`, `origin`, `global_envelope`
-- `parts`, `interfaces`, `contacts`, `anchors`
-- `measurements`, `assertions`
-- `assumptions`, `reasons`
+- `units`: `mm`, `cm`, or `m`
+- `coordinate_system`: object containing `up` (`X`, `Y`, or `Z`) and `handedness` (`left` or `right`)
+- `reference_calibrated`: boolean
+- `measurements`: array
 
-Use absolute scene units. Every fit-critical target must have an explicit absolute `tolerance`; never substitute percentages or visual similarity.
+Each measurement requires `id`, `kind`, `asset_id`, `target`, `tolerance_abs`, `required`, and `scope`; `axis` (`X`, `Y`, or `Z`) is optional. `kind` is exactly `dimension`, `distance`, `gap`, `contact`, `collision_clearance`, or `global_envelope`. Use `scope` values `global`, `primary`, `contact`, and `anchor` to supply the four L1 gates. Express every fit-critical tolerance as the absolute `tolerance_abs` in `units`.
 
-## 2. `asset-manifest.json` (`AssetManifest`)
+## `asset_manifest.json` (`AssetManifest`)
 
-Required fields:
+Require `spec_version`, `job_id`, and `assets`. Each asset requires:
 
-- `schema_version`, `job_id`, `assets`
-- For each asset: `asset_id`, `role`, `source`, `uri`, `checksum`, `units`, `scale`, `provenance`, `assumptions`, `reasons`
+- `asset_id`
+- `role`: `fit_critical`, `visual_shell`, or `stage`
+- `source`: `procedural`, `cad_sketcher`, `imported`, `tripo`, or `user`
+- `target_dimensions`, `location`, `rotation_deg`: three-number vectors
+- `anchors`: string array
 
-Asset `role` is one of `reference`, `dimensional_drawing`, `calibration`, `visual_shell`, `source_geometry`, or `deliverable`. Asset `source` is one of `user`, `generated`, `imported`, `library`, `tripo`, or `derived`. A Tripo asset must use `role: visual_shell`; it supplies visual guidance only and never measurement authority.
+`provenance` and `checksum` are optional schema fields, but complete provenance is required for L2. Tripo must remain a `visual_shell` and cannot provide fit-critical evidence.
 
-## 3. `operation-plan.json` (`OperationPlan`)
+Represent CAD intent only with asset `source: cad_sketcher`. Pass runtime `cad_available` to the planner; never encode a CAD selector in `SceneSpec`. The deterministic source routes are:
 
-Required fields:
+| Asset source | Planned step `tool` |
+|---|---|
+| `procedural` | `precision_create_part` |
+| `imported`, `user` | `precision_import_asset` |
+| `tripo` | `external_pending` |
+| `cad_sketcher` with `cad_available: true` | `precision_create_cad_part` |
+| `cad_sketcher` with `cad_available: false` | `backend_unavailable` |
 
-- `schema_version`, `job_id`, `backend`, `operations`, `assumptions`, `reasons`
-- For each operation: `operation_id`, `operation_type`, `target_ids`, `parameters`, `depends_on`, `expected_outputs`, `checkpoint`
+Never silently replace an unavailable CAD route.
 
-Order operations deterministically by dependency and stable `operation_id`. Use only registered typed operations. Do not embed Python, expressions, shell, Blender console text, or other raw executable code. Apply corrections as named typed patch operations that cite the failed inspection/assertion and their parent checkpoint.
+## `operation_plan.json` (`OperationPlan`)
 
-## 4. `precision-report.json` (`PrecisionReport`)
+Require `spec_version`, `job_id`, and `steps`. Each step requires `operation_id`, `tool`, `asset_id`, `params`, `preconditions`, `expected`, `rollback`, and `depends_on`. The four object fields are `params`, `preconditions`, `expected`, and `rollback`; `depends_on` is a string array.
 
-Required fields:
+Sort assets by stable `asset_id`, assign stable `operation_id` values, and honor dependencies. Execute registered typed tools only. Never embed Python, shell, expressions, Blender-console text, or other raw code. Apply corrections through named typed patch tools and re-inspect.
 
-- `schema_version`, `job_id`, `status`, `grade`, `backend`
-- `measurements`, `assertions`, `geometry_checks`, `checkpoints`, `provenance`
-- `operation_history`, `patch_history`, `evidence`
-- `assumptions`, `reasons`
+## `qa_report.json` (`QAReport`)
 
-`status` is `prepared`, `inspected`, `validated`, `failed`, `backend_unavailable`, or `finalized`. Measurement `kind` is `global_envelope`, `primary`, `contact`, `anchor`, `clearance`, `alignment`, `interface`, `angle`, `radius`, or `custom`. Each measurement records `measurement_id`, `kind`, `target`, `actual`, `tolerance`, `unit`, `required`, `passed`, and `evidence_ids`.
+Required root fields are `spec_version`, `job_id`, `assertions`, `geometry`, `provenance`, `checkpoint`, `reasons`, `assumptions`, `artifacts`, and `final_grade` (`L0`, `L1`, or `L2`). `geometry`, `provenance`, and `checkpoint` are booleans; `reasons` and `assumptions` are string arrays.
 
-## Exact grade gates
+Each assertion requires exactly `id`, `target`, `actual`, `absolute_error`, `relative_error`, `tolerance_abs`, `passed`, `required`, and `scope`. `relative_error` may be null for a zero target. Each artifact requires `path` and a 64-hex-character `sha256`.
 
-- **L0:** Use whenever input lacks a known dimension or scale and either a calibrated camera or a dimensional drawing; when required calibration is inferred; when a requested backend is unavailable; or when any higher gate is incomplete. One image or several images alone do not raise L0.
-- **L1:** Require passing required `global_envelope`, `primary`, `contact`, and `anchor` measurements and their assertions. Missing any category, failure, or absent evidence is L0.
-- **L2:** Require every required measurement and assertion to pass; all geometry checks and checkpoints to pass; complete provenance; no unresolved `assumptions`; and the full evidence set. A failed required assertion prevents commit and L2.
+## Input-insufficient L0
 
-Only `precision_validate_job` may determine a passing grade. Only `precision_finalize_job` may commit a passing report/evidence bundle.
+Encode uncalibrated input with `reference_calibrated: false`. Preserve the user's `requested_grade`, but validation must derive `final_grade: L0`. `measurements` may be empty when no calibrated target exists. Record missing dimensions, scale, camera calibration, or drawing data in QA `assumptions` and `reasons` and in `assumptions.md`. Do not invoke finalization or claim L2.
 
-## Evidence contents
+## Grade gates
 
-Include all four contract files; the committed `.blend` and normalized import/export artifacts; checksums; backend/tool versions; calibrated reference and dimensional sources; deterministic operation and named-patch histories; before/after checkpoints; measurement values with absolute tolerances; assertion and geometry-check results; object/part identifiers and transforms; provenance; and neutral renders sufficient to identify measured targets. Rendered appearance and Seedance output are supporting previews, never grade evidence.
+- **L0:** Require when `reference_calibrated` is false or any L1 gate is missing or failed. Single or multiple uncalibrated views remain L0.
+- **L1:** Require at least one passing assertion for each `global`, `primary`, `contact`, and `anchor` gate, and require every assertion contributing to those gates to pass. `kind: global_envelope` can supply the global gate; `kind: contact` can supply the contact gate.
+- **L2:** Require L1, every required assertion passing, `geometry: true`, `checkpoint: true`, `provenance: true`, and an empty `assumptions` array.
+
+Only `precision_validate_job` derives `final_grade`. `precision_finalize_job` commits only a strict L2 report with no failed required assertion.
+
+## Evidence bundle
+
+Preserve `scene_spec.json`, `asset_manifest.json`, `operation_plan.json`, and `qa_report.json`; `assumptions.md`; `checkpoints/before.blend` and either `checkpoints/failed.blend` or `checkpoints/final.blend`; and, for committed L2, `previews/orthographic.png` and `previews/perspective.png`. List final checkpoints/previews in QA `artifacts` with their SHA-256 digests. Seedance output and visual appearance are previews, never measurement authority.
