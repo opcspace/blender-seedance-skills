@@ -1,53 +1,16 @@
 import json
 import os
-import socket
-import threading
 from pathlib import Path
 from typing import Any
 
 from mcp.server.fastmcp import FastMCP
 
+from precision_mcp.transport import BlenderBridge
+
 
 HOST = os.getenv("PRECISION_BLENDER_HOST", "127.0.0.1")
 PORT = int(os.getenv("PRECISION_BLENDER_PORT", "9877"))
 WORKDIR = Path(os.getenv("PRECISION_WORKDIR", os.getcwd())).resolve()
-
-
-class BlenderBridge:
-    def __init__(self, host: str, port: int):
-        self.host = host
-        self.port = port
-        self.sock: socket.socket | None = None
-        self.lock = threading.Lock()
-
-    def call(self, command: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
-        with self.lock:
-            if self.sock is None:
-                self.sock = socket.create_connection((self.host, self.port), timeout=10)
-            payload = json.dumps({"type": command, "params": params or {}}).encode("utf-8")
-            try:
-                self.sock.sendall(payload)
-                self.sock.settimeout(180)
-                chunks: list[bytes] = []
-                while True:
-                    chunk = self.sock.recv(65536)
-                    if not chunk:
-                        raise ConnectionError("precision addon closed the socket")
-                    chunks.append(chunk)
-                    try:
-                        response = json.loads(b"".join(chunks).decode("utf-8"))
-                        break
-                    except json.JSONDecodeError:
-                        continue
-                if response.get("status") == "error":
-                    raise RuntimeError(response.get("message", "Blender precision command failed"))
-                return response.get("result", response)
-            except Exception:
-                self.sock.close()
-                self.sock = None
-                raise
-
-
 bridge = BlenderBridge(HOST, PORT)
 mcp = FastMCP("BlenderPrecisionMCP")
 
